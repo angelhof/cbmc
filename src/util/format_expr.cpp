@@ -275,17 +275,29 @@ std::ostream &format_rec(std::ostream &os, const exprt &expr)
   else if(id == ID_type)
     return format_rec(os, expr.type());
   else if(id == ID_forall)
+  {
     return os << u8"\u2200 " << format(to_quantifier_expr(expr).symbol())
               << " : " << format(to_quantifier_expr(expr).symbol().type())
               << " . " << format(to_quantifier_expr(expr).where());
+  }
   else if(id == ID_exists)
+  {
     return os << u8"\u2203 " << format(to_quantifier_expr(expr).symbol())
               << " : " << format(to_quantifier_expr(expr).symbol().type())
               << " . " << format(to_quantifier_expr(expr).where());
+  }
   else if(id == ID_let)
+  {
     return os << "LET " << format(to_let_expr(expr).symbol()) << " = "
               << format(to_let_expr(expr).value()) << " IN "
               << format(to_let_expr(expr).where());
+  }
+  else if(id == ID_lambda)
+  {
+    return os << u8"\u1d706 " << format(to_lambda_expr(expr).symbol()) << " : "
+              << format(to_lambda_expr(expr).symbol().type()) << " . "
+              << format(to_lambda_expr(expr).where());
+  }
   else if(id == ID_array || id == ID_struct)
   {
     os << "{ ";

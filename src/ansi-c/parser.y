@@ -187,6 +187,7 @@ extern char *yyansi_ctext;
 %token TOK_EXISTS      "exists"
 %token TOK_ACSL_FORALL "\\forall"
 %token TOK_ACSL_EXISTS "\\exists"
+%token TOK_ACSL_LAMBDA "\\lambda"
 %token TOK_ACSL_LET    "\\let"
 %token TOK_ARRAY_OF    "array_of"
 %token TOK_CPROVER_BITVECTOR "__CPROVER_bitvector"
@@ -496,6 +497,16 @@ quantifier_expression:
           // to bind only very weakly.
           $$=$1;
           set($$, ID_exists);
+          mto($$, $3);
+          mto($$, $4);
+          PARSER.pop_scope();
+        }
+        | TOK_ACSL_LAMBDA compound_scope declaration primary_expression
+        {
+          // The precedence of this operator is too high; it is meant
+          // to bind only very weakly.
+          $$=$1;
+          set($$, ID_lambda);
           mto($$, $3);
           mto($$, $4);
           PARSER.pop_scope();

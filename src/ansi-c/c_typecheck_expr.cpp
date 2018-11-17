@@ -289,13 +289,12 @@ void c_typecheck_baset::typecheck_expr_main(exprt &expr)
     // already fine, just set some type
     expr.type()=void_type();
   }
-  else if(expr.id()==ID_forall ||
-          expr.id()==ID_exists)
+  else if(
+    expr.id() == ID_forall || expr.id() == ID_exists || expr.id() == ID_lambda)
   {
     // op0 is a declaration,
     // op1 the bound expression
     assert(expr.operands().size()==2);
-    expr.type()=bool_typet();
 
     if(expr.op0().get(ID_statement)!=ID_decl)
     {
@@ -315,7 +314,16 @@ void c_typecheck_baset::typecheck_expr_main(exprt &expr)
     symbol_exprt bound=to_symbol_expr(expr.op0().op0());
     expr.op0().swap(bound);
 
-    implicit_typecast_bool(expr.op1());
+    if(expr.id() == ID_lambda)
+    {
+      expr.type() =
+        mathematical_function_typet({expr.op0().type()}, expr.op1().type());
+    }
+    else
+    {
+      expr.type() = bool_typet();
+      implicit_typecast_bool(expr.op1());
+    }
   }
   else if(expr.id()==ID_label)
   {
@@ -736,7 +744,8 @@ void c_typecheck_baset::typecheck_expr_operands(exprt &expr)
   {
     typecheck_code(to_code(expr.op0()));
   }
-  else if(expr.id()==ID_forall || expr.id()==ID_exists)
+  else if(
+    expr.id() == ID_forall || expr.id() == ID_exists || expr.id() == ID_lambda)
   {
     assert(expr.operands().size()==2);
 
