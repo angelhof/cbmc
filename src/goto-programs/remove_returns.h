@@ -85,9 +85,7 @@ class symbol_exprt;
 
 void remove_returns(symbol_table_baset &, goto_functionst &);
 
-typedef std::function<bool(const irep_idt &)> function_is_stubt;
-
-void remove_returns(goto_model_functiont &, function_is_stubt);
+void remove_returns(goto_model_functiont &);
 
 void remove_returns(goto_modelt &);
 
@@ -101,8 +99,8 @@ void restore_returns(goto_modelt &);
 irep_idt return_value_identifier(const irep_idt &);
 
 /// produces the symbol that is used to store the return
-/// value of the function with the given identifier
-symbol_exprt return_value_symbol(const irep_idt &, const namespacet &);
+/// value of the function with the given signature
+symbol_exprt return_value_symbol(const code_typet &);
 
 /// Returns true if \p id is a special return-value symbol produced by
 /// \ref return_value_identifier
