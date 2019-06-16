@@ -361,7 +361,9 @@ std::string expr2javat::convert_java_instanceof(const exprt &src)
     return convert_norep(src, precedence);
   }
 
-  return convert(src.op0())+" instanceof "+convert(src.op1().type());
+  const auto type = java_reference_type(to_struct_tag_type(src.op1().type()));
+
+  return convert(src.op0()) + " instanceof " + convert(type);
 }
 
 std::string expr2javat::convert_code_java_new(const exprt &src, unsigned indent)
