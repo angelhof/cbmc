@@ -485,8 +485,8 @@ This is described in more detail \link string_builtin_functiont here. \endlink
 \subsection conversions Conversions:
 
   * `cprover_string_format` :
-    \copybrief add_axioms_for_format
-    \link add_axioms_for_format More... \endlink
+    \copybrief string_format_builtin_functiont
+    \link string_format_builtin_functiont More... \endlink
   * `cprover_string_from_literal` :
     \copybrief add_axioms_from_literal(symbol_generatort &fresh_symbol, const function_application_exprt &f, array_poolt &array_pool)
     \link add_axioms_from_literal(symbol_generatort &fresh_symbol, const function_application_exprt &f, array_poolt &array_pool) More... \endlink
