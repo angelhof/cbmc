@@ -13,6 +13,9 @@ Date: February 2016
 
 #include "code_contracts.h"
 
+#include <fstream>
+#include <iostream>
+
 #include <util/expr_util.h>
 #include <util/fresh_symbol.h>
 #include <util/replace_symbol.h>
@@ -51,6 +54,10 @@ protected:
 
   void code_contracts(goto_functionst::goto_functiont &goto_function);
 
+  void stub_function(
+    const irep_idt &function_id,
+    goto_functionst::goto_functiont &goto_function);
+  
   void apply_contract(
     goto_programt &goto_program,
     goto_programt::targett target);
@@ -157,17 +164,31 @@ void code_contractst::apply_contract(
   goto_programt &goto_program,
   goto_programt::targett target)
 {
+  /* target is a function call instruction, so we can get function
+   * call out of it */
   const code_function_callt &call = target->get_function_call();
 
   // we don't handle function pointers
   if(call.function().id()!=ID_symbol)
     return;
 
+  /* We can get the function out of the call, and then using the
+   * symbolic expression translatior, we can get its identifier.
+   * 
+   * The first call is just a cast, and then a call to get identifier.
+   * 
+   * We then find the function name in the symbol lookup table
+   *
+   * We then turn its type into code_type (WHAT IS THAT?)  Probably
+   * type is the declaration of the function, so its return type, its
+   * name etc
+   */
   const irep_idt &function=
     to_symbol_expr(call.function()).get_identifier();
   const symbolt &f_sym=ns.lookup(function);
   const code_typet &type=to_code_type(f_sym.type);
 
+  /* We then find the requires and ensures of the spec */
   exprt requires=
     static_cast<const exprt&>(type.find(ID_C_spec_requires));
   exprt ensures=
@@ -177,6 +198,9 @@ void code_contractst::apply_contract(
   if(ensures.is_nil())
     return;
 
+  /* We build a replace table that is an association map from the
+   * formal names to the real call arguments. */
+  
   // replace formal parameters by arguments, replace return
   replace_symbolt replace;
 
@@ -201,6 +225,8 @@ void code_contractst::apply_contract(
       replace.insert(p, *a_it);
     }
 
+  /* Then we use this replace table, to replace all names in requires
+   * and ensures with the correct ones. */
   replace(requires);
   replace(ensures);
 
@@ -209,13 +235,18 @@ void code_contractst::apply_contract(
     goto_programt::instructiont a =
       goto_programt::make_assertion(requires, target->source_location);
 
+    /* It seems that this call preserves jumps to the target or
+     * something, when it inserts. */
     goto_program.insert_before_swap(target, a);
+    /* However now the target points one after? */
     ++target;
   }
 
   // overwrite the function call
   *target = goto_programt::make_assumption(ensures, target->source_location);
 
+  /* Add it to the summarized set, which is a set of functions that
+   * where indeed summarized :) */
   summarized.insert(function);
 }
 
@@ -236,11 +267,65 @@ void code_contractst::code_contracts(
       l_it->first,
       l_it->second);
 
+  // std::cout << "Fasi" << goto_function.type << "\n";
+  
   // look at all function calls
   Forall_goto_program_instructions(it, goto_function.body)
     if(it->is_function_call())
       apply_contract(goto_function.body, it);
 }
+
+void code_contractst::stub_function(
+  const irep_idt &function_id,
+  goto_functionst::goto_functiont &goto_function)
+{
+  // This function is based on code_contractst::code_contracts/1
+  
+  // It creates a stub for each function based on the associated
+  // requires and ensures
+  
+  std::cout << " -- [Start] stub function: " << function_id << "\n";
+  
+  // look at all function calls
+  // Forall_goto_program_instructions(it, goto_function.body)
+  //   if(it->is_function_call())
+  //     apply_contract(goto_function.body, it);
+  
+  // Get the function requires and ensures
+  const symbolt &f_sym=ns.lookup(function_id);
+  const code_typet &type=to_code_type(f_sym.type);
+  
+  const exprt &requires=
+    static_cast<const exprt&>(type.find(ID_C_spec_requires));
+  const exprt &ensures=
+    static_cast<const exprt&>(type.find(ID_C_spec_ensures));
+
+  // TODO: We probably have to produce a warning or exit if there is
+  // no contract.
+ 
+  // Question: What about variables that were declared in the function
+  // body but are contained in the ensures?
+
+  // Clear the function body
+  goto_function.body.clear();
+
+  // Add the assertion in the function body
+  if(requires.is_not_nil())
+    goto_function.body.add(goto_programt::make_assertion(requires));
+    // TODO: Add a source location as a second argument of make_assertion
+  
+  // Add the postcondition assumption
+  if(ensures.is_not_nil())
+    goto_function.body.add(goto_programt::make_assumption(ensures));
+    // TODO: Add a source location as a second argument of make_assumption
+
+  std::cout << "Function body after adding the assumption: " << "\n";
+  goto_function.body.output(ns, function_id, std::cout);
+
+  // TODO: Havoc the modified variables inside
+  
+  // Question: do I need to call some update or something after I do the changes?
+} 
 
 const symbolt &code_contractst::new_tmp_symbol(
   const typet &type,
@@ -372,9 +457,19 @@ void code_contractst::add_contract_check(
 
 void code_contractst::operator()()
 {
+  
+  
   Forall_goto_functions(it, goto_functions)
-    code_contracts(it->second);
-
+  {
+    /* We have to create a stub for each function in the goto file
+     * (that is not in the -no-stub list */
+    if(it->first == "aws_array_list_back") {
+      std::cout << "Function: " << it->first << "\n";
+      stub_function(it->first, it->second);
+    }
+    // code_contracts(it->second);
+  }
+  
   goto_functionst::function_mapt::iterator i_it=
     goto_functions.function_map.find(INITIALIZE_FUNCTION);
   assert(i_it!=goto_functions.function_map.end());
