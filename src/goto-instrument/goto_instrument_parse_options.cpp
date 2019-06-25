@@ -84,6 +84,7 @@ Author: Daniel Kroening, kroening@kroening.com
 #include "dump_c.h"
 #include "full_slicer.h"
 #include "function.h"
+#include "function_stubs.h"
 #include "havoc_loops.h"
 #include "horn_encoding.h"
 #include "interrupt.h"
@@ -641,14 +642,47 @@ int goto_instrument_parse_optionst::doit()
 
     if(
       cmdline.isset("dump-c") || cmdline.isset("dump-cpp") ||
-      cmdline.isset("dump-c-type-header"))
+      cmdline.isset("create-function-stub") || cmdline.isset("dump-c-type-header"))
     {
       const bool is_cpp=cmdline.isset("dump-cpp");
+      const bool c_stub = cmdline.isset("create-function-stub");
       const bool is_header = cmdline.isset("dump-c-type-header");
       const bool h_libc=!cmdline.isset("no-system-headers");
       const bool h_all=cmdline.isset("use-all-headers");
       const bool harness=cmdline.isset("harness");
       namespacet ns(goto_model.symbol_table);
+
+      if(c_stub)
+      {
+        bool okay = true;
+        for(const char *flag : {"dump-c",
+                                "dump-cpp",
+                                "dump-c-type-header",
+                                "no-system-headers",
+                                "use-all-headers",
+                                "harness"})
+        {
+          if(cmdline.isset(flag))
+          {
+            okay = false;
+            log.error() << "--create-function-stub cannot be used with --"
+                        << flag << messaget::eom;
+          }
+        }
+        if(!okay)
+          return CPROVER_EXIT_USAGE_ERROR;
+
+        // Modify the goto_model to only contain the body of the stub
+        // and the necessary declarations
+        std::string function_name = cmdline.get_value("create-function-stub");
+        log.status() << "Creating stub for: " << function_name << messaget::eom;
+        if(function_stubs(goto_model, function_name, log))
+          return CPROVER_EXIT_CONVERSION_FAILED;
+      }
+
+      optionalt<irep_idt> stub_name;
+      if(c_stub)
+        stub_name.emplace(cmdline.get_value("create-function-stub"));
 
       // restore RETURN instructions in case remove_returns had been
       // applied
@@ -680,7 +714,7 @@ int goto_instrument_parse_optionst::doit()
         else
         {
           (is_cpp ? dump_cpp : dump_c)(
-            goto_model.goto_functions, h_libc, h_all, harness, ns, out);
+            goto_model.goto_functions, h_libc, h_all, harness, ns, stub_name, out);
         }
       }
       else
@@ -699,7 +733,7 @@ int goto_instrument_parse_optionst::doit()
         else
         {
           (is_cpp ? dump_cpp : dump_c)(
-            goto_model.goto_functions, h_libc, h_all, harness, ns, std::cout);
+            goto_model.goto_functions, h_libc, h_all, harness, ns, stub_name, std::cout);
         }
       }
 

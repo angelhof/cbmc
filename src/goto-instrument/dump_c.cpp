@@ -24,6 +24,7 @@ Author: Daniel Kroening, kroening@kroening.com
 #include <linking/static_lifetime_init.h>
 
 #include "dump_c_class.h"
+#include "function_stubs.h"
 #include "goto_program2code.h"
 
 dump_c_configurationt dump_c_configurationt::default_configuration =
@@ -285,9 +286,32 @@ void dump_ct::operator()(std::ostream &os)
 
   // Dump the code to the target stream;
   // the statements before to this point collect the code to dump!
-  for(std::set<std::string>::const_iterator
-      it=system_headers.begin();
-      it!=system_headers.end();
+  if(stub_name.has_value())
+  {
+    // When generating a stub, we should just generate a stub header,
+    // since the included header information is not present in the
+    // goto_model.
+    os << "#include <stub_header.h>\n\n";
+
+    // We should also generate a declaration of the internal stub
+    // function
+    INVARIANT(
+      !func_decl_stream.str().empty(),
+      "The declaration stream should contain the internal stub function "
+      "declaration.");
+    os << func_decl_stream.str() << '\n';
+
+    // And finally the body of the function to stub
+    INVARIANT(
+      !func_body_stream.str().empty(),
+      "The function definition stream should contain the definition of the "
+      "requested function stub.");
+    os << func_body_stream.str();
+    return;
+  }
+
+  for(std::set<std::string>::const_iterator it = system_headers.begin();
+      it != system_headers.end();
       ++it)
     os << "#include <" << *it << ">\n";
   if(!system_headers.empty())
@@ -1094,14 +1118,17 @@ void dump_ct::convert_function_declaration(
     declared_enum_constants.swap(enum_constants_bak);
   }
 
-  if(symbol.name!=goto_functionst::entry_point() &&
-     symbol.name!=ID_main)
+  if(
+    (!stub_name.has_value() && symbol.name != goto_functionst::entry_point() &&
+     symbol.name != ID_main) ||
+    (stub_name.has_value() &&
+     symbol.name == stub_name_of_function(stub_name.value())))
   {
     os_decl << "// " << symbol.name << '\n';
     os_decl << "// " << symbol.location << '\n';
     os_decl << make_decl(symbol.name, symbol.type) << ";\n";
   }
-  else if(harness && symbol.name==ID_main)
+  else if(!stub_name.has_value() && harness && symbol.name == ID_main)
   {
     os_decl << "// " << symbol.name << '\n';
     os_decl << "// " << symbol.location << '\n';
@@ -1462,6 +1489,7 @@ void dump_c(
   const bool use_all_headers,
   const bool include_harness,
   const namespacet &ns,
+  const optionalt<irep_idt> stub_name,
   std::ostream &out)
 {
   dump_ct goto2c(
@@ -1470,6 +1498,7 @@ void dump_c(
     use_all_headers,
     include_harness,
     ns,
+    stub_name,
     new_ansi_c_language);
   out << goto2c;
 }
@@ -1480,6 +1509,7 @@ void dump_cpp(
   const bool use_all_headers,
   const bool include_harness,
   const namespacet &ns,
+  const optionalt<irep_idt> stub_name,
   std::ostream &out)
 {
   dump_ct goto2cpp(
@@ -1488,6 +1518,7 @@ void dump_cpp(
     use_all_headers,
     include_harness,
     ns,
+    stub_name,
     new_cpp_language);
   out << goto2cpp;
 }
