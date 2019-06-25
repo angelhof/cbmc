@@ -84,6 +84,7 @@ Author: Daniel Kroening, kroening@kroening.com
 #include "dump_c.h"
 #include "full_slicer.h"
 #include "function.h"
+#include "function_stubs.h"
 #include "havoc_loops.h"
 #include "horn_encoding.h"
 #include "interrupt.h"
@@ -639,13 +640,40 @@ int goto_instrument_parse_optionst::doit()
       return CPROVER_EXIT_SUCCESS;
     }
 
-    if(cmdline.isset("dump-c") || cmdline.isset("dump-cpp"))
+    if(
+      cmdline.isset("dump-c") || cmdline.isset("dump-cpp") ||
+      cmdline.isset("create-function-stub"))
     {
       const bool is_cpp=cmdline.isset("dump-cpp");
+      const bool c_stub = cmdline.isset("create-function-stub");
       const bool h_libc=!cmdline.isset("no-system-headers");
       const bool h_all=cmdline.isset("use-all-headers");
       const bool harness=cmdline.isset("harness");
       namespacet ns(goto_model.symbol_table);
+
+      if(c_stub)
+      {
+        bool okay = true;
+        for(const char *flag : {"dump-c",
+                                "dump-cpp",
+                                "no-system-headers",
+                                "use-all-headers",
+                                "harness"})
+        {
+          if(cmdline.isset(flag))
+          {
+            okay = false;
+            log.error() << "--create-function-stub cannot be used with --"
+                        << flag << messaget::eom;
+          }
+        }
+        if(!okay)
+          return CPROVER_EXIT_USAGE_ERROR;
+      }
+
+      optionalt<irep_idt> stub_name;
+      if(c_stub)
+        stub_name.emplace(cmdline.get_value("create-function-stub"));
 
       // restore RETURN instructions in case remove_returns had been
       // applied
@@ -669,6 +697,7 @@ int goto_instrument_parse_optionst::doit()
           h_all,
           harness,
           ns,
+          stub_name,
           out);
       }
       else
@@ -678,6 +707,7 @@ int goto_instrument_parse_optionst::doit()
           h_all,
           harness,
           ns,
+          stub_name,
           std::cout);
 
       return CPROVER_EXIT_SUCCESS;
@@ -1063,6 +1093,14 @@ void goto_instrument_parse_optionst::instrument_goto_program()
   {
     log.status() << "Applying Code Contracts" << messaget::eom;
     code_contracts(goto_model);
+  }
+
+  if(cmdline.isset("create-function-stub"))
+  {
+    // Question: Should we do this for many functions?
+    std::string function_name = cmdline.get_value("create-function-stub");
+    log.status() << "Creating stub for: " << function_name << messaget::eom;
+    function_stubs(goto_model, function_name);
   }
 
   // replace function pointers, if explicitly requested
