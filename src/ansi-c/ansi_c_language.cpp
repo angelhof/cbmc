@@ -11,8 +11,11 @@ Author: Daniel Kroening, kroening@kroening.com
 #include <cstring>
 #include <sstream>
 #include <fstream>
+#include <iostream>
 
 #include <util/config.h>
+#include <util/expr_iterator.h>
+#include <util/expr_util.h>
 #include <util/get_base_name.h>
 
 #include <linking/linking.h>
@@ -133,6 +136,108 @@ bool ansi_c_languaget::generate_support_functions(
   // This creates __CPROVER_start and __CPROVER_initialize:
   return ansi_c_entry_point(
     symbol_table, get_message_handler(), object_factory_params);
+}
+
+// Question: There should be a better (cleaner) way to do this
+bool is_call_to_function(std::string function_name, exprt expr) {
+  // Question: What is the difference between base name and identifier?
+      
+  // Question: Isn't there a canonical way to access fields
+  // of an expression with methods, or finding the id of an
+  // expression with methods such as "is_symbol" or
+  // operand.identifier
+  
+  return expr.id() == "side_effect"
+    && expr.find(ID_statement).id() == "function_call"
+    && expr.op0().id() == "symbol"
+    && expr.op0().find(ID_identifier).id() == function_name;
+}
+
+// QUESTION: Should I make that static or define it somewhere else?
+exprt aggregate_function_conditions(std::string target_function_name, ansi_c_declaratort function) {
+  exprt function_body = function.value();
+  
+  // TODO: I probably have to add some check that inside the
+  // code in the precondition there is nothing funky going on?
+  exprt::operandst conditions;
+  
+  // Question: Is there a better way to get the members of the parse
+  // tree (rather than checking their id strings?
+  for (depth_iteratort it = function_body.depth_begin(); it != function_body.depth_end(); ++it) {
+    
+    // Question: What is the correct way of finding a function call?
+    // std::cout << it->id() << " -- " << it->find(ID_statement).id() << "\n";
+    // Filters the function calls
+    if (is_call_to_function(target_function_name, *it)) {
+      exprt condition = it->op1().op0();
+      // std::cout << "Precondition:\n" << precondition.pretty() << "\n";
+      // std::cout << "Precondition type:\n" << precondition.type().id() << "\n";
+      
+      // Note: it is not very efficient to push back in a vector.
+      conditions.push_back(condition);
+
+      // TODO: I should probably go to the next sibling or parent
+      // after finding a function call to the target name and not just
+      // iterate it once
+    }
+  }
+
+  // WARNING: In order for it to make sense to return the conjunction
+  // of the preconditions, they have to be in the beginning of the
+  // function body before anythinf else.
+  //
+  // TODO: Maybe I should add a check to ensure that
+  //
+  // WARNING: Similarly with postconditions
+
+  
+  // Return all the preconditions in a conjunction
+  // TODO: I probably have to add metadata to this conjunction
+  //
+  // Question: It seems that function calls do not have a type. Is it
+  // correct to put them in an and expression like that?
+  return conjunction(conditions);
+}
+
+bool ansi_c_languaget::preconditions_to_contracts() {
+
+  // TODO: Find all pre and postconditions in the parse tree
+  // TODO: Combine them in a conjunction
+  // TODO: Extend requires and ensures with them
+  // ids of fields ID_C_spec_requires/ID_C_spec_ensures
+
+  // QUESTION: How do we find out function definitions?
+  
+  std::list<ansi_c_declarationt> declarations = parse_tree.items;
+  for (std::list<ansi_c_declarationt>::iterator it = declarations.begin(); it != declarations.end(); ++it){
+    std::cout << "Declaration:\n";
+    std::vector<ansi_c_declaratort> decls = it->declarators();
+
+    for (std::vector<ansi_c_declaratort>::iterator it2 = decls.begin(); it2 != decls.end(); ++it2){ 
+      std::cout << "  " << it2->get_name() << "\n";
+      if (it2->get_name() == "s_sift_up") {
+        exprt precondition = aggregate_function_conditions("__CPROVER_precondition", *it2);
+        std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
+
+        // TODO: Add the same for postconditions. Maybe the function
+        // has to be different so that it checks whether
+        // postconditions are in the right place.
+
+        // TODO: Also postconditions are more difficult because they
+        // might talk about values that were declared in the function
+        // body.
+        
+        // exprt postcondition = aggregate_function_conditions("__CPROVER_postcondition", *it2);
+
+        // TODO: Now that we have the pre and postconditions we need
+        // to add them in the function as requires/ensures
+      }
+    }
+  }
+  
+  // show_parse(std::cout);
+  // return true;
+  return false;
 }
 
 void ansi_c_languaget::show_parse(std::ostream &out)

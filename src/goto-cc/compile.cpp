@@ -504,6 +504,11 @@ bool compilet::parse(
       error() << "PARSING ERROR" << eom;
       return true;
     }
+    if(cmdline.isset("turn-preconditions-to-contracts")) {
+      // lf.language->show_parse(std::cout);
+      return lf.language->preconditions_to_contracts();
+      // return true;
+    }
   }
 
   lf.get_modules();
