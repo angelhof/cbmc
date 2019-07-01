@@ -39,18 +39,27 @@ void build_havoc_code(
   const modifiest &modifies,
   goto_programt &dest)
 {
+  build_havoc_code_at_source_location(
+    loop_head->source_location, modifies, dest);
+}
+
+void build_havoc_code_at_source_location(
+  const source_locationt source_location,
+  const modifiest &modifies,
+  goto_programt &dest)
+{
   for(modifiest::const_iterator
       m_it=modifies.begin();
       m_it!=modifies.end();
       m_it++)
   {
     exprt lhs=*m_it;
-    side_effect_expr_nondett rhs(lhs.type(), loop_head->source_location);
+    side_effect_expr_nondett rhs(lhs.type(), source_location);
 
     goto_programt::targett t = dest.add(goto_programt::make_assignment(
       code_assignt(std::move(lhs), std::move(rhs)),
-      loop_head->source_location));
-    t->code.add_source_location()=loop_head->source_location;
+      source_location));
+    t->code.add_source_location()=source_location;
   }
 }
 

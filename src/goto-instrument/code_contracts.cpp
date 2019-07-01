@@ -27,6 +27,7 @@ Date: February 2016
 #include <linking/static_lifetime_init.h>
 
 #include "loop_utils.h"
+#include "function_modifies.h"
 
 class code_contractst
 {
@@ -56,7 +57,8 @@ protected:
 
   void stub_function(
     const irep_idt &function_id,
-    goto_functionst::goto_functiont &goto_function);
+    goto_functionst::goto_functiont &goto_function,
+    function_modifiest function_modifies);
   
   void apply_contract(
     goto_programt &goto_program,
@@ -275,22 +277,15 @@ void code_contractst::code_contracts(
       apply_contract(goto_function.body, it);
 }
 
+// This function is based on code_contractst::code_contracts/1
+//
+// It creates a stub for each function based on the associated
+// requires and ensures
 void code_contractst::stub_function(
   const irep_idt &function_id,
-  goto_functionst::goto_functiont &goto_function)
-{
-  // This function is based on code_contractst::code_contracts/1
-  
-  // It creates a stub for each function based on the associated
-  // requires and ensures
-  
-  std::cout << " -- [Start] stub function: " << function_id << "\n";
-  
-  // look at all function calls
-  // Forall_goto_program_instructions(it, goto_function.body)
-  //   if(it->is_function_call())
-  //     apply_contract(goto_function.body, it);
-  
+  goto_functionst::goto_functiont &goto_function,
+  function_modifiest function_modifies)
+{ 
   // Get the function requires and ensures
   const symbolt &f_sym=ns.lookup(function_id);
   const code_typet &type=to_code_type(f_sym.type);
@@ -306,23 +301,67 @@ void code_contractst::stub_function(
   // Question: What about variables that were declared in the function
   // body but are contained in the ensures?
 
+  // Find what is modified in the function.
+  //
+  // Question: Is this a sound analysis? If so, then it will also
+  // havoc memory locations?
+  //
+  // There is another problem. The modifies analysis should happen
+  // before the stubs because otherwise havocing some modified
+  // variable may make the approximation more loose if we then do an
+  // analysis on a function that calls the already havoced function.
+  modifiest modifies;
+  local_may_aliast local_may_alias(goto_function);
+  const goto_programt &goto_program = goto_function.body;
+
+  // get_modifies(local_may_alias, goto_program, modifies)
+    
+  forall_goto_program_instructions(i_it, goto_program)
+    function_modifies.get_modifies(local_may_alias, i_it, modifies);
+
   // Clear the function body
   goto_function.body.clear();
 
   // Add the assertion in the function body
   if(requires.is_not_nil())
-    goto_function.body.add(goto_programt::make_assertion(requires));
-    // TODO: Add a source location as a second argument of make_assertion
+    goto_function.body.add(
+      goto_programt::make_assertion(requires,
+                                    requires.source_location()));
+    // TODO: Add a comment in the source location of the assertion
+  
+  // Havoc the may-change variables.
+  //
+  // TODO: This probably needs improvement. I am not sure whether it
+  // is really sound havoc. Whether it really havocs all the necessary
+  // variables/memory locations.
+  //
+  // Question: This is defined in loop_utils. Does this only work for
+  // loop code? Inspect and make sure that it works for any code.
+  //
+  // Problem: Havoc introduces a lot of random variables and havocs
+  // them so we should probably do some unused variable analysis after
+  // the stub generation to cut them
+  //
+  // Problem: The havoc doesn't havoc any memory location
+  //
+  // Problem: The modifies analysis doesnt find that dst of memcpy is
+  // indeed modified and so it doesn't havoc it.
+  //
+  // build_havoc_code_at_source_location(requires.source_location(), modifies, goto_function.body);
   
   // Add the postcondition assumption
   if(ensures.is_not_nil())
-    goto_function.body.add(goto_programt::make_assumption(ensures));
-    // TODO: Add a source location as a second argument of make_assumption
+    goto_function.body.add(
+      goto_programt::make_assumption(ensures,
+                                     ensures.source_location()));
+  // TODO: Add comment as is done in the loop code
 
+  // Append the end of function instruction
+  goto_function.body.add(goto_programt::make_end_function(ensures.source_location()));
+  
   std::cout << "Function body after adding the assumption: " << "\n";
   goto_function.body.output(ns, function_id, std::cout);
 
-  // TODO: Havoc the modified variables inside
   
   // Question: do I need to call some update or something after I do the changes?
 } 
@@ -457,29 +496,49 @@ void code_contractst::add_contract_check(
 
 void code_contractst::operator()()
 {
-  
-  
-  Forall_goto_functions(it, goto_functions)
+  // We should first find all the modifies of all functions, and then
+  // stub out the ones that we want.
+  //
+  // Question: Is it safe to change the goto_functions after giving
+  // them to function_modifies?
+
+  // Make a new copy of the goto functions
+  goto_functionst stub_functions;
+  stub_functions.copy_from(goto_functions);
+  // Question: Is this update necessary?
+  stub_functions.update();
+
+  // Do the function_modifies analysis to all goto_functions.
+  function_modifiest function_modifies(goto_functions);
+
+  // Iterate over the stub functions
+  Forall_goto_functions(it, stub_functions)
   {
     /* We have to create a stub for each function in the goto file
      * (that is not in the -no-stub list */
-    if(it->first == "aws_array_list_back") {
+    if(it->first == "s_sift_down" || it->first == "s_sift_up") {
       std::cout << "Function: " << it->first << "\n";
-      stub_function(it->first, it->second);
+
+      // Question: Is it correct to call stub_function with
+      // function_modifies initialized with goto_functions and here
+      // have stub_functions? Could something go wrong?
+      stub_function(it->first, it->second, function_modifies);
     }
-    // code_contracts(it->second);
   }
+  stub_functions.update();
+  stub_functions.validate(ns, validation_modet::INVARIANT);
   
-  goto_functionst::function_mapt::iterator i_it=
-    goto_functions.function_map.find(INITIALIZE_FUNCTION);
-  assert(i_it!=goto_functions.function_map.end());
+  // goto_functionst::function_mapt::iterator i_it=
+  //   goto_functions.function_map.find(INITIALIZE_FUNCTION);
+  // assert(i_it!=goto_functions.function_map.end());
 
-  for(const auto &contract : summarized)
-    add_contract_check(contract, i_it->second.body);
+  // for(const auto &contract : summarized)
+  //   add_contract_check(contract, i_it->second.body);
 
-  // remove skips
-  remove_skip(i_it->second.body);
+  // // remove skips
+  // remove_skip(i_it->second.body);
 
+  goto_functions.copy_from(stub_functions);
   goto_functions.update();
 }
 

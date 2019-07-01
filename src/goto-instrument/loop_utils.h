@@ -35,6 +35,11 @@ void build_havoc_code(
   const modifiest &modifies,
   goto_programt &dest);
 
+void build_havoc_code_at_source_location(
+  const source_locationt source_location,
+  const modifiest &modifies,
+  goto_programt &dest);
+
 goto_programt::targett get_loop_exit(const loopt &);
 
 #endif // CPROVER_GOTO_INSTRUMENT_LOOP_UTILS_H
