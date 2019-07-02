@@ -153,12 +153,7 @@ bool is_call_to_function(std::string function_name, exprt expr) {
     && expr.op0().find(ID_identifier).id() == function_name;
 }
 
-
-
-// QUESTION: Should I make that static or define it somewhere else?
-exprt aggregate_function_conditions(std::string target_function_name, ansi_c_declaratort function) {
-  exprt function_body = function.value();
-  
+exprt::operandst filter_pre_post_conditions(std::string target_function_name, exprt function_body) {
   // TODO: I probably have to add some check that inside the
   // code in the precondition there is nothing funky going on?
   exprt::operandst conditions;
@@ -183,6 +178,39 @@ exprt aggregate_function_conditions(std::string target_function_name, ansi_c_dec
       // iterate it once
     }
   }
+  return conditions;
+}
+
+exprt aggregate_function_postconditions(ansi_c_declaratort function) {
+  exprt function_body = function.value();
+  
+  // TODO: I probably have to add some check that inside the
+  // code in the postcondition there is nothing funky going on?
+  exprt::operandst postconditions = filter_pre_post_conditions("__CPROVER_postcondition", function_body);
+  
+
+  // WARNING: In order for it to make sense to return the disjunction
+  // of the potconditions, they have to be at the end of the body, and
+  // they have to not refer to anything that is declared in the body.
+  //
+  // TODO: Maybe I should add a check to ensure that
+  
+  // Return all the postconditions in a disjunction
+  // TODO: I probably have to add metadata to this disjunction
+  //
+  // Question: It seems that function calls do not have a type. Is it
+  // correct to put them in an and expression like that?
+  return disjunction(postconditions);
+}
+
+// QUESTION: Should I make that static or define it somewhere else?
+exprt aggregate_function_preconditions(ansi_c_declaratort function) {
+  exprt function_body = function.value();
+  
+  // TODO: I probably have to add some check that inside the
+  // code in the precondition there is nothing funky going on?
+  exprt::operandst preconditions = filter_pre_post_conditions("__CPROVER_precondition", function_body);
+  
 
   // WARNING: In order for it to make sense to return the conjunction
   // of the preconditions, they have to be in the beginning of the
@@ -198,7 +226,7 @@ exprt aggregate_function_conditions(std::string target_function_name, ansi_c_dec
   //
   // Question: It seems that function calls do not have a type. Is it
   // correct to put them in an and expression like that?
-  return conjunction(conditions);
+  return conjunction(preconditions);
 }
 
 // Extends the specified contract (requires/ensures) of the function declaration with the given condition.
@@ -228,27 +256,27 @@ bool ansi_c_languaget::preconditions_to_contracts() {
     if (!it->declarators().empty()) {
       ansi_c_declaratort decl = it->declarator();
       std::cout << "  " << decl.get_name() << "\n";
-      exprt precondition = aggregate_function_conditions("__CPROVER_precondition", decl);
+      exprt precondition = aggregate_function_preconditions(decl);
       // std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
-
-      // TODO: Add the same for postconditions. Maybe the function
-      // has to be different so that it checks whether
-      // postconditions are in the right place.
-      
-      // TODO: Also postconditions are more difficult because they
-      // might talk about values that were declared in the function
-      // body.
-      
-      // exprt postcondition = aggregate_function_conditions("__CPROVER_postcondition", *it2);
-
       if (!precondition.is_true()) {
         std::cout << "  -- Successfully turned precondition into contract\n";
       }
-      
       // std::cout << "Previous declaration\n" << it->pretty() << "\n";
       // Question: Is there any better way of passing a pointer to that declaration?
       extend_contract(ID_C_spec_requires, precondition, &(*it));
       // std::cout << "New declaration\n" << it->pretty() << "\n";
+      
+      // exprt postcondition = aggregate_function_conditions("__CPROVER_postcondition", *it2);
+      exprt postcondition = aggregate_function_postconditions(decl);
+      // std::cout << "Folded postcondition:\n" << postcondition.pretty() << "\n";
+      if (!postcondition.is_false()) {
+        std::cout << "  -- Successfully turned postcondition into contract\n";
+      }
+      // std::cout << "Previous declaration\n" << it->pretty() << "\n";
+      // Question: Is there any better way of passing a pointer to that declaration?
+      extend_contract(ID_C_spec_ensures, postcondition, &(*it));
+      // std::cout << "New declaration\n" << it->pretty() << "\n";
+      
     }
   }
 
@@ -265,7 +293,7 @@ bool ansi_c_languaget::preconditions_to_contracts() {
   //
   //   + There are some issues with that. Postconditions might be
   //     different in each function exit point. The best thing to do
-  //     for start would be to get their conjunction and turn that
+  //     for start would be to get their disjunction and turn that
   //     into an ensures. In the future we would like to talk about
   //     the return value and its correlation with the final
   //     postcondition.
