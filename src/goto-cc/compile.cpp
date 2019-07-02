@@ -504,13 +504,19 @@ bool compilet::parse(
       error() << "PARSING ERROR" << eom;
       return true;
     }
-    if(cmdline.isset("turn-preconditions-to-contracts")) {
-      // lf.language->show_parse(std::cout);
-      return lf.language->preconditions_to_contracts();
-      // return true;
+    // TODO: This probably has to move after a typecheck.
+    if(cmdline.isset("turn-preconditions-to-contracts"))
+    {
+      statistics() << "Turning pre and postconditions to function contracts" << eom;
+      
+      if (lf.language->preconditions_to_contracts())
+      {
+        error() << "ERROR WHEN TURNING PRE AND POSTCONDITIONS TO CONTRACTS" << eom;
+        return true;
+      }
     }
   }
-
+  
   lf.get_modules();
   return false;
 }

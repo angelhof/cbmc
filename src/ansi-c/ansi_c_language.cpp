@@ -199,24 +199,35 @@ exprt aggregate_function_conditions(std::string target_function_name, ansi_c_dec
   return conjunction(conditions);
 }
 
+// Extends the specified contract (requires/ensures) of the function declaration with the given condition.
+//
+// TODO: What is a way to add as a precondition to this function that
+// declaration should be a function definition, and that condition
+// should be boolean, etc...
+void extend_contract(const irep_namet &contract_name,
+                     const exprt condition,
+                     ansi_c_declarationt* declaration) {
+  exprt old_contract = static_cast<const exprt&>(declaration->find(contract_name));
+  if (old_contract.is_nil()) {
+    old_contract = make_boolean_expr(true);
+  }
+  exprt new_contract = and_exprt(old_contract, condition);
+  declaration->add(contract_name, new_contract);
+}
+
 bool ansi_c_languaget::preconditions_to_contracts() {
 
-  // TODO: Find all pre and postconditions in the parse tree
-  // TODO: Combine them in a conjunction
-  // TODO: Extend requires and ensures with them
-  // ids of fields ID_C_spec_requires/ID_C_spec_ensures
-
-  // QUESTION: How do we find out function definitions?
-  
+  // QUESTION: What is the canonical way to find function definitions?  
   std::list<ansi_c_declarationt> declarations = parse_tree.items;
   for (std::list<ansi_c_declarationt>::iterator it = declarations.begin(); it != declarations.end(); ++it){
     std::cout << "Declaration:\n";
-    std::vector<ansi_c_declaratort> decls = it->declarators();
 
-    for (std::vector<ansi_c_declaratort>::iterator it2 = decls.begin(); it2 != decls.end(); ++it2){ 
-      std::cout << "  " << it2->get_name() << "\n";
-      if (it2->get_name() == "s_sift_up") {
-        exprt precondition = aggregate_function_conditions("__CPROVER_precondition", *it2);
+    // Question: Does it always hold that a declaration either has 0 or 1 declarator?
+    if (!it->declarators().empty()) {
+      ansi_c_declaratort decl = it->declarator();
+      std::cout << "  " << decl.get_name() << "\n";
+      if (decl.get_name() == "s_sift_up") {
+        exprt precondition = aggregate_function_conditions("__CPROVER_precondition", decl);
         std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
 
         // TODO: Add the same for postconditions. Maybe the function
@@ -229,14 +240,19 @@ bool ansi_c_languaget::preconditions_to_contracts() {
         
         // exprt postcondition = aggregate_function_conditions("__CPROVER_postcondition", *it2);
 
-        // TODO: Now that we have the pre and postconditions we need
-        // to add them in the function as requires/ensures
-      }
+        // std::cout << "Previous declaration\n" << it->pretty() << "\n";
+        // Question: Is there any better way of passing a pointer to that declaration?
+        extend_contract(ID_C_spec_requires, precondition, &(*it));
+        std::cout << "New declaration\n" << it->pretty() << "\n";
+      }      
     }
   }
+
+  // TODO: I need a way to print the parsed function (with the
+  // contract) back to C in order to debug whether the contracts were
+  // added correctly.
   
   // show_parse(std::cout);
-  // return true;
   return false;
 }
 
