@@ -226,25 +226,27 @@ bool ansi_c_languaget::preconditions_to_contracts() {
     if (!it->declarators().empty()) {
       ansi_c_declaratort decl = it->declarator();
       std::cout << "  " << decl.get_name() << "\n";
-      if (decl.get_name() == "s_sift_up") {
-        exprt precondition = aggregate_function_conditions("__CPROVER_precondition", decl);
-        std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
+      exprt precondition = aggregate_function_conditions("__CPROVER_precondition", decl);
+      // std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
 
-        // TODO: Add the same for postconditions. Maybe the function
-        // has to be different so that it checks whether
-        // postconditions are in the right place.
+      // TODO: Add the same for postconditions. Maybe the function
+      // has to be different so that it checks whether
+      // postconditions are in the right place.
+      
+      // TODO: Also postconditions are more difficult because they
+      // might talk about values that were declared in the function
+      // body.
+      
+      // exprt postcondition = aggregate_function_conditions("__CPROVER_postcondition", *it2);
 
-        // TODO: Also postconditions are more difficult because they
-        // might talk about values that were declared in the function
-        // body.
-        
-        // exprt postcondition = aggregate_function_conditions("__CPROVER_postcondition", *it2);
-
-        // std::cout << "Previous declaration\n" << it->pretty() << "\n";
-        // Question: Is there any better way of passing a pointer to that declaration?
-        extend_contract(ID_C_spec_requires, precondition, &(*it));
-        std::cout << "New declaration\n" << it->pretty() << "\n";
-      }      
+      if (!precondition.is_true()) {
+        std::cout << "  -- Successfully turned precondition into contract\n";
+      }
+      
+      // std::cout << "Previous declaration\n" << it->pretty() << "\n";
+      // Question: Is there any better way of passing a pointer to that declaration?
+      extend_contract(ID_C_spec_requires, precondition, &(*it));
+      // std::cout << "New declaration\n" << it->pretty() << "\n";
     }
   }
 
