@@ -504,7 +504,11 @@ bool compilet::parse(
       error() << "PARSING ERROR" << eom;
       return true;
     }
-    // TODO: This probably has to move after a typecheck.
+    // Question: Should this move after a typecheck. I don't think so,
+    // because typecheck should also typecheck the contracts in
+    // theory, so it is actually even better to let typecheck happen
+    // after this transformation so that we make sure that the
+    // transformed contracts are correct
     if(cmdline.isset("turn-preconditions-to-contracts"))
     {
       statistics() << "Turning pre and postconditions to function contracts" << eom;

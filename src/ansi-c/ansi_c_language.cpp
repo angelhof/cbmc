@@ -153,6 +153,8 @@ bool is_call_to_function(std::string function_name, exprt expr) {
     && expr.op0().find(ID_identifier).id() == function_name;
 }
 
+
+
 // QUESTION: Should I make that static or define it somewhere else?
 exprt aggregate_function_conditions(std::string target_function_name, ansi_c_declaratort function) {
   exprt function_body = function.value();
@@ -250,6 +252,31 @@ bool ansi_c_languaget::preconditions_to_contracts() {
     }
   }
 
+  // TODO: Make a check for preconditions and ensure that they happen
+  // before anything else in the code. Should this check just be that
+  // the preconditions are a prefix of the function body?
+
+  // TODO: Get the preconditions from code
+  //
+  // - Introduce a new function __CPROVER_postcondition that just
+  //   turns into an assert internally in CBMC.
+  //
+  // - Search for all the postconditions as we do about the preconditions.
+  //
+  //   + There are some issues with that. Postconditions might be
+  //     different in each function exit point. The best thing to do
+  //     for start would be to get their conjunction and turn that
+  //     into an ensures. In the future we would like to talk about
+  //     the return value and its correlation with the final
+  //     postcondition.
+  //
+  //   + Postconditions might talk about values that were declared in
+  //     the function. We should filter any postcondition "conjunct"
+  //     that refers to a variable that was declared during the
+  //     function. For start we could just filter out any
+  //     postcondition that refers to anything that is not included in
+  //     the function arguments.
+  
   // TODO: I need a way to print the parsed function (with the
   // contract) back to C in order to debug whether the contracts were
   // added correctly.
