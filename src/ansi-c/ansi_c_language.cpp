@@ -153,6 +153,31 @@ bool is_call_to_function(std::string function_name, exprt expr) {
     && expr.op0().find(ID_identifier).id() == function_name;
 }
 
+// Question: Is this name reasonable?
+// Question: There is probably a better way to do that
+bool is_symbol(exprt expr) {
+  // Question: What is the difference between base name and identifier?
+      
+  // Question: Isn't there a canonical way to access fields
+  // of an expression with methods, or finding the id of an
+  // expression with methods such as "is_symbol" or
+  // operand.identifier
+  
+  return expr.id() == "symbol";
+}
+
+bool is_variable_declaration(exprt expr) {
+  // Question: What is the difference between base name and identifier?
+      
+  // Question: Isn't there a canonical way to access fields
+  // of an expression with methods, or finding the id of an
+  // expression with methods such as "is_symbol" or
+  // operand.identifier
+  
+  return expr.find(ID_statement).is_not_nil()
+    && expr.get(ID_statement) == "decl";
+}
+
 exprt::operandst filter_pre_post_conditions(std::string target_function_name, exprt function_body) {
   // TODO: I probably have to add some check that inside the
   // code in the precondition there is nothing funky going on?
@@ -193,7 +218,97 @@ exprt aggregate_function_postconditions(ansi_c_declaratort function) {
   // of the potconditions, they have to be at the end of the body, and
   // they have to not refer to anything that is declared in the body.
   //
-  // TODO: Maybe I should add a check to ensure that
+  // Question: Is there any other constraint for the postconditions so
+  // that they can be turned to function contracts?
+
+  // TODO: Add a check to ensure that no postcondition refers to
+  // values that were declared in the function body
+  if (function.get_name() == "s_sift_up") {
+    // std::cout << function_body.pretty() << "\n";
+
+    // Gather the variable names that were declared in the function body
+    //
+    // Question: Maybe it is better to do that with base names instead of names and identifiers
+    // Question: Are the identifiers really strings or maybe something else?
+    std::unordered_set<std::string> body_variable_names;
+    for (depth_iteratort d_it = function_body.depth_begin(); d_it != function_body.depth_end(); ++d_it) {
+        
+      // Question: What is the correct way of finding all variable
+      // declarations in the function body?
+      //
+      // Filters the variable declarations
+      if (is_variable_declaration(*d_it)) {
+        std::cout << "Variable Declaration:\n";
+        // std::cout << d_it->pretty() << "\n";
+
+        exprt::operandst declared_vars = d_it->op0().operands();
+        
+        // Keep the name of all declared variables in the function body
+        for (exprt::operandst::iterator it = declared_vars.begin(); it != declared_vars.end(); ++it) {
+          // std::cout << it->pretty() << "\n";
+          std::string var_name = it->get_string(ID_name);
+          std::cout << var_name << "\n";
+          body_variable_names.insert(var_name);
+        }
+        
+        // std::string var_name = d_it->get_string(ID_identifier);
+
+        // Note: It might be more efficient to skip to the next
+        // sibling instead of just incrementing d_it when we found a
+        // declaration
+      }
+    }
+
+    // Obsolete code that used to find parameter names whereas now we
+    // only find the variables declared in the comments.
+    //
+    //const code_typet &type=to_code_type(function.type());
+    // std::cout << "Function type: s_sift_up\n" << type.pretty() << "\n";
+    //
+    // code_typet::parameterst parameters = type.parameters(); 
+    // for(code_typet::parameterst::iterator
+    //       it=parameters.begin(); it!=parameters.end(); ++it) {
+    //   // This is probably not the correct way to access the parameter name
+    //   std::string name = it->op0().get_string(ID_name);
+    //   std::cout << "Identifier: " << name << "\n";
+    //   parameter_names.insert(name);
+    // }
+    
+    std::cout << "Postconditions\n";
+    for (exprt::operandst::iterator it = postconditions.begin(); it != postconditions.end(); ++it) {
+      // Turn all postconditions that refer to symbols other than the arguments to true
+      exprt postcondition = *it;
+
+      // Return true if there is at least one symbol in the
+      // postcondition that is not in the arguments
+      bool refers_to_variable_in_body = false;
+      for (depth_iteratort d_it = postcondition.depth_begin(); d_it != postcondition.depth_end(); ++d_it) {
+        
+        // Question: What is the correct way of finding all variable references?
+        // Filters the variable references
+        if (is_symbol(*d_it)) {
+          std::cout << d_it->pretty() << "\n";
+          std::string var_name = d_it->get_string(ID_identifier);
+          if (body_variable_names.find(var_name) != body_variable_names.end()) {
+            refers_to_variable_in_body = true;
+            break;
+          }
+        }
+      }
+
+      std::cout << "Before:\n" << it->pretty() << "\n";
+      // If this specific postcondition refers to a variable that was
+      // declared in the body, then make it be true
+      if (refers_to_variable_in_body) {
+        *it = make_boolean_expr(true);
+      }
+      std::cout << "After:\n" << it->pretty() << "\n";
+    }
+  }
+
+  // TODO: Gather all postconditions that are in the same exit point
+  // to be in a conjunction and all of the conjuncts from different
+  // exit points to be a disjunction
   
   // Return all the postconditions in a disjunction
   // TODO: I probably have to add metadata to this disjunction
@@ -285,9 +400,6 @@ bool ansi_c_languaget::preconditions_to_contracts() {
   // the preconditions are a prefix of the function body?
 
   // TODO: Get the preconditions from code
-  //
-  // - Introduce a new function __CPROVER_postcondition that just
-  //   turns into an assert internally in CBMC.
   //
   // - Search for all the postconditions as we do about the preconditions.
   //
