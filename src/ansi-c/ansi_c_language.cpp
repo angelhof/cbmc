@@ -138,6 +138,8 @@ bool ansi_c_languaget::generate_support_functions(
     symbol_table, get_message_handler(), object_factory_params);
 }
 
+// Question: Are those [is_*] functions correct?
+
 // Question: There should be a better (cleaner) way to do this
 bool is_call_to_function(std::string function_name, exprt expr) {
   // Question: What is the difference between base name and identifier?
@@ -151,6 +153,12 @@ bool is_call_to_function(std::string function_name, exprt expr) {
     && expr.find(ID_statement).id() == "function_call"
     && expr.op0().id() == "symbol"
     && expr.op0().find(ID_identifier).id() == function_name;
+}
+
+bool is_code_postcondition(exprt expr) {
+  return expr.find(ID_statement).is_not_nil()
+    && expr.get(ID_statement) == "expression"
+    && is_call_to_function("__CPROVER_postcondition", expr.op0());
 }
 
 // Question: Is this name reasonable?
@@ -176,6 +184,11 @@ bool is_variable_declaration(exprt expr) {
   
   return expr.find(ID_statement).is_not_nil()
     && expr.get(ID_statement) == "decl";
+}
+
+bool is_return_statement(exprt expr) {
+  return expr.find(ID_statement).is_not_nil()
+    && expr.get(ID_statement) == "return";
 }
 
 exprt::operandst filter_pre_post_conditions(std::string target_function_name, exprt function_body) {
@@ -206,6 +219,7 @@ exprt::operandst filter_pre_post_conditions(std::string target_function_name, ex
   return conditions;
 }
 
+
 // This function finds all postconditions and collects them in groups
 // of sequences. Each sequence refers to a function exit point
 // (return). 
@@ -214,8 +228,6 @@ exprt::operandst filter_pre_post_conditions(std::string target_function_name, ex
 std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
 
   // TODO:
-  //
-  // - Find all function exit points
   //
   // - Find all postconditions in a straight line before the exit
   //   point.  Note: This is not trivial to do, as postconditions
@@ -227,12 +239,60 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
   //   postcondition was really meant to be an assert, but it could
   //   not hold at the exit point.
   //
+  //   Note: A major difficulty is that a sequence of postconditions
+  //   might be interrupted by a jump or a branch (e.g. in case a
+  //   postcondition holds for both branches of an if-then-else
+  //   statement), and we have to be able to deal with that. Plan to
+  //   get around that. Can we make an iterator that can go back and
+  //   forth? So that when we find the return value we can take back
+  //   steps and get all postconditions in our way?
+  //
   // - (Maybe) Explicitly warn when a postcondition can not be matched
   //   to any exit point so it is skipped.
 
-  std::cout << "Function body:\n" << function_body.pretty() << "\n";
+  // std::cout << "Function body:\n" << function_body.pretty() << "\n";
 
+  // For now, instead of getting the proper postconditions before each
+  // return, we can instead just find any block that contains a return
+  // (in its operands) and then get all the postconditions before it
+  // in the same block. This is not complete, but should work for now.
   std::vector<exprt::operandst> postconditions;
+
+  // Warning: This is pretty inefficient, because it checks all
+  // children twice. Once for whether they contain a return, and one
+  // for the iteration itself.
+  for (depth_iteratort d_it = function_body.depth_begin(); d_it != function_body.depth_end(); ++d_it) {
+    // If the list of operands of this node contains a return then get
+    // all the postconditions before that return.
+    exprt::operandst operands = d_it->operands();
+    
+    // Find all the return statement in the block
+    exprt::operandst::reverse_iterator it = operands.rbegin();
+    while (it != operands.rend()) {
+      
+      // Find the last return statement
+      for (; it != operands.rend() && !is_return_statement(*it); ++it)
+        ;
+      
+      // If a return statement was indeed found in the operands
+      if (it != operands.rend()) {
+        assert(is_return_statement(*it));
+        // std::cout << "Found return statement\n" << return_statement->pretty() << "\n";
+        // Collect all postconditions that are in sequence before the
+        // return statement
+        std::list<exprt> postcondition_group;
+        ++it;
+        while (it != operands.rend() && is_code_postcondition(*it)) {
+          // std::cout << "Found postcondition\n" << it->op0().pretty() << "\n";
+          postcondition_group.push_front(it->op0());
+          ++it;
+        }
+        
+        exprt::operandst postcondition_group_vec(postcondition_group.begin(), postcondition_group.end());
+        postconditions.push_back(postcondition_group_vec);
+      }
+    }
+  }
   
   return postconditions;
 }
@@ -270,74 +330,75 @@ std::unordered_set<std::string> get_body_variable_names(exprt function_body) {
   return body_variable_names;
 }
 
+// Returns true if the expression refers to a variable in the given
+// set of variable names
+bool refers_to_variable_in_set(exprt expr, std::unordered_set<std::string> variable_names) {
+  bool rval = false;
+  for (depth_iteratort d_it = expr.depth_begin(); d_it != expr.depth_end(); ++d_it) {   
+    // Question: What is the correct way of finding all variable references?
+    // Filters the variable references
+    if (is_symbol(*d_it)) {
+      // std::cout << d_it->pretty() << "\n";
+      std::string var_name = d_it->get_string(ID_identifier);
+      if (variable_names.find(var_name) != variable_names.end()) {
+        rval = true;
+        break;
+      }
+    }
+  }
+  return rval;
+}
+
 exprt aggregate_function_postconditions(ansi_c_declaratort function) {
   exprt function_body = function.value();
   
-  // TODO: I probably have to add some check that inside the
-  // code in the postcondition there is nothing funky going on?
-  exprt::operandst postconditions = filter_pre_post_conditions("__CPROVER_postcondition", function_body);
-
-  if (function.get_name() == "aws_priority_queue_push_ref") {
-    collect_postconditions(function_body);
-  }
-
-  // WARNING: In order for it to make sense to return the disjunction
-  // of the potconditions, they have to be at the end of the body, and
-  // they have to not refer to anything that is declared in the body.
-  //
-  // Question: Is there any other constraint for the postconditions so
-  // that they can be turned to function contracts?
-
-  // TODO: Add a check to ensure that no postcondition refers to
-  // values that were declared in the function body
-  
-  // std::cout << function_body.pretty() << "\n";
-  
   // Gather the variable names that were declared in the function body
   std::unordered_set<std::string> body_variable_names = get_body_variable_names(function_body);
-      
-  // std::cout << "Postconditions\n";
-  for (exprt::operandst::iterator it = postconditions.begin(); it != postconditions.end(); ++it) {
-    // Turn all postconditions that refer to symbols other than the arguments to true
-    exprt postcondition = *it;
-    
-    // Return true if there is at least one symbol in the
-    // postcondition that is not in the arguments
-    bool refers_to_variable_in_body = false;
-    for (depth_iteratort d_it = postcondition.depth_begin(); d_it != postcondition.depth_end(); ++d_it) {
-      
-      // Question: What is the correct way of finding all variable references?
-      // Filters the variable references
-      if (is_symbol(*d_it)) {
-        // std::cout << d_it->pretty() << "\n";
-        std::string var_name = d_it->get_string(ID_identifier);
-        if (body_variable_names.find(var_name) != body_variable_names.end()) {
-          refers_to_variable_in_body = true;
-          break;
-        }
-      }
-    }
-    
-    // std::cout << "Before:\n" << it->pretty() << "\n";
-    // If this specific postcondition refers to a variable that was
-    // declared in the body, then make it be true
-    if (refers_to_variable_in_body) {
-      *it = make_boolean_expr(true);
-      std::cout << "    + Postondition reference to body variable\n";
-    }
-    // std::cout << "After:\n" << it->pretty() << "\n";
-  }
 
-  // TODO: Gather all postconditions that are in the same exit point
-  // to be in a conjunction and all of the conjuncts from different
-  // exit points to be a disjunction
+  exprt::operandst aggregated_groups;
   
-  // Return all the postconditions in a disjunction
-  // TODO: I probably have to add metadata to this disjunction
+  if (function_body.is_not_nil()) {  
+    // TODO: I probably have to add some check that inside the
+    // code in the postconditions there is nothing funky going on?
+    std::vector<exprt::operandst> postconditions = collect_postconditions(function_body);
+    std::cout << "  -- Found " << postconditions.size() << " exit points\n";
+    int i = 1;
+    for (auto group = postconditions.begin(); group != postconditions.end(); ++group) {
+      std::cout << "   + Exit point: " << i << " has " << group->size() << " postconditions\n";
+      ++i;
+
+      // WARNING: In order for it to make sense to return the disjunction
+      // of the potconditions, they have to be at the end of the body, and
+      // they have to not refer to anything that is declared in the body.
+      //
+      // Question: Is there any other constraint for the postconditions so
+      // that they can be turned to function contracts?
+      
+      for (exprt::operandst::iterator it = group->begin(); it != group->end(); ++it) {
+        // Turn all postconditions that refer to symbols other than the arguments to true
+        exprt postcondition = *it;
+        
+        // std::cout << "Before:\n" << it->pretty() << "\n"; If this
+        // specific postcondition refers to a variable that was
+        // declared in the body (and thus in an inner scope), then
+        // make it be true
+        if (refers_to_variable_in_set(*it, body_variable_names)) {
+          *it = make_boolean_expr(true);
+          std::cout << "   +- Postcondition reference to body variable\n";
+        }
+        // std::cout << "After:\n" << it->pretty() << "\n";
+      }
+
+      // Aggregate all the postconditions in a conjunction as they are in sequence
+      aggregated_groups.push_back(conjunction(*group));
+    }
+  }
+  
+  // Aggregate the conjunction of each group as a disjunction
   //
-  // Question: It seems that function calls do not have a type. Is it
-  // correct to put them in an and expression like that?
-  return disjunction(postconditions);
+  // TODO: Instead of aggregating into a disjunction, try to
+  // aggregate based on the return value
+  return disjunction(aggregated_groups);
 }
 
 // QUESTION: Should I make that static or define it somewhere else?
