@@ -206,13 +206,80 @@ exprt::operandst filter_pre_post_conditions(std::string target_function_name, ex
   return conditions;
 }
 
+// This function finds all postconditions and collects them in groups
+// of sequences. Each sequence refers to a function exit point
+// (return). 
+//
+// Question: Maybe vector isn't the best candidate container for that task
+std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
+
+  // TODO:
+  //
+  // - Find all function exit points
+  //
+  // - Find all postconditions in a straight line before the exit
+  //   point.  Note: This is not trivial to do, as postconditions
+  //   might not be in an uninterrupted sequence (is that possible?)
+  //
+  //   Note: Postconditions don't make sense if they are not just
+  //   before the function exit point. If some "effectful" operation
+  //   happens between a postcondition and the exit point, then the
+  //   postcondition was really meant to be an assert, but it could
+  //   not hold at the exit point.
+  //
+  // - (Maybe) Explicitly warn when a postcondition can not be matched
+  //   to any exit point so it is skipped.
+
+  std::cout << "Function body:\n" << function_body.pretty() << "\n";
+
+  std::vector<exprt::operandst> postconditions;
+  
+  return postconditions;
+}
+
+// This function finds all the names of variables declared in the function body.
+std::unordered_set<std::string> get_body_variable_names(exprt function_body) {
+  std::unordered_set<std::string> body_variable_names;
+  for (depth_iteratort d_it = function_body.depth_begin(); d_it != function_body.depth_end(); ++d_it) {
+    
+    // Question: What is the correct way of finding all variable
+    // declarations in the function body?
+    //
+    // Filters the variable declarations
+    if (is_variable_declaration(*d_it)) {
+      // std::cout << "Variable Declaration:\n";
+      // std::cout << d_it->pretty() << "\n";
+      
+      exprt::operandst declared_vars = d_it->op0().operands();
+      
+      // Keep the name of all declared variables in the function body
+      for (exprt::operandst::iterator it = declared_vars.begin(); it != declared_vars.end(); ++it) {
+        // std::cout << it->pretty() << "\n";
+        std::string var_name = it->get_string(ID_name);
+        // std::cout << var_name << "\n";
+        body_variable_names.insert(var_name);
+      }
+      
+      // std::string var_name = d_it->get_string(ID_identifier);
+      
+      // Note: It might be more efficient to skip to the next
+      // sibling instead of just incrementing d_it when we found a
+      // declaration
+    }
+  }
+  return body_variable_names;
+}
+
 exprt aggregate_function_postconditions(ansi_c_declaratort function) {
   exprt function_body = function.value();
   
   // TODO: I probably have to add some check that inside the
   // code in the postcondition there is nothing funky going on?
   exprt::operandst postconditions = filter_pre_post_conditions("__CPROVER_postcondition", function_body);
-  
+
+  if (function.get_name() == "aws_priority_queue_push_ref") {
+    collect_postconditions(function_body);
+  }
 
   // WARNING: In order for it to make sense to return the disjunction
   // of the potconditions, they have to be at the end of the body, and
@@ -223,87 +290,42 @@ exprt aggregate_function_postconditions(ansi_c_declaratort function) {
 
   // TODO: Add a check to ensure that no postcondition refers to
   // values that were declared in the function body
-  if (function.get_name() == "s_sift_up") {
-    // std::cout << function_body.pretty() << "\n";
-
-    // Gather the variable names that were declared in the function body
-    //
-    // Question: Maybe it is better to do that with base names instead of names and identifiers
-    // Question: Are the identifiers really strings or maybe something else?
-    std::unordered_set<std::string> body_variable_names;
-    for (depth_iteratort d_it = function_body.depth_begin(); d_it != function_body.depth_end(); ++d_it) {
-        
-      // Question: What is the correct way of finding all variable
-      // declarations in the function body?
-      //
-      // Filters the variable declarations
-      if (is_variable_declaration(*d_it)) {
-        std::cout << "Variable Declaration:\n";
-        // std::cout << d_it->pretty() << "\n";
-
-        exprt::operandst declared_vars = d_it->op0().operands();
-        
-        // Keep the name of all declared variables in the function body
-        for (exprt::operandst::iterator it = declared_vars.begin(); it != declared_vars.end(); ++it) {
-          // std::cout << it->pretty() << "\n";
-          std::string var_name = it->get_string(ID_name);
-          std::cout << var_name << "\n";
-          body_variable_names.insert(var_name);
-        }
-        
-        // std::string var_name = d_it->get_string(ID_identifier);
-
-        // Note: It might be more efficient to skip to the next
-        // sibling instead of just incrementing d_it when we found a
-        // declaration
-      }
-    }
-
-    // Obsolete code that used to find parameter names whereas now we
-    // only find the variables declared in the comments.
-    //
-    //const code_typet &type=to_code_type(function.type());
-    // std::cout << "Function type: s_sift_up\n" << type.pretty() << "\n";
-    //
-    // code_typet::parameterst parameters = type.parameters(); 
-    // for(code_typet::parameterst::iterator
-    //       it=parameters.begin(); it!=parameters.end(); ++it) {
-    //   // This is probably not the correct way to access the parameter name
-    //   std::string name = it->op0().get_string(ID_name);
-    //   std::cout << "Identifier: " << name << "\n";
-    //   parameter_names.insert(name);
-    // }
+  
+  // std::cout << function_body.pretty() << "\n";
+  
+  // Gather the variable names that were declared in the function body
+  std::unordered_set<std::string> body_variable_names = get_body_variable_names(function_body);
+      
+  // std::cout << "Postconditions\n";
+  for (exprt::operandst::iterator it = postconditions.begin(); it != postconditions.end(); ++it) {
+    // Turn all postconditions that refer to symbols other than the arguments to true
+    exprt postcondition = *it;
     
-    std::cout << "Postconditions\n";
-    for (exprt::operandst::iterator it = postconditions.begin(); it != postconditions.end(); ++it) {
-      // Turn all postconditions that refer to symbols other than the arguments to true
-      exprt postcondition = *it;
-
-      // Return true if there is at least one symbol in the
-      // postcondition that is not in the arguments
-      bool refers_to_variable_in_body = false;
-      for (depth_iteratort d_it = postcondition.depth_begin(); d_it != postcondition.depth_end(); ++d_it) {
-        
-        // Question: What is the correct way of finding all variable references?
-        // Filters the variable references
-        if (is_symbol(*d_it)) {
-          std::cout << d_it->pretty() << "\n";
-          std::string var_name = d_it->get_string(ID_identifier);
-          if (body_variable_names.find(var_name) != body_variable_names.end()) {
-            refers_to_variable_in_body = true;
-            break;
-          }
+    // Return true if there is at least one symbol in the
+    // postcondition that is not in the arguments
+    bool refers_to_variable_in_body = false;
+    for (depth_iteratort d_it = postcondition.depth_begin(); d_it != postcondition.depth_end(); ++d_it) {
+      
+      // Question: What is the correct way of finding all variable references?
+      // Filters the variable references
+      if (is_symbol(*d_it)) {
+        // std::cout << d_it->pretty() << "\n";
+        std::string var_name = d_it->get_string(ID_identifier);
+        if (body_variable_names.find(var_name) != body_variable_names.end()) {
+          refers_to_variable_in_body = true;
+          break;
         }
       }
-
-      std::cout << "Before:\n" << it->pretty() << "\n";
-      // If this specific postcondition refers to a variable that was
-      // declared in the body, then make it be true
-      if (refers_to_variable_in_body) {
-        *it = make_boolean_expr(true);
-      }
-      std::cout << "After:\n" << it->pretty() << "\n";
     }
+    
+    // std::cout << "Before:\n" << it->pretty() << "\n";
+    // If this specific postcondition refers to a variable that was
+    // declared in the body, then make it be true
+    if (refers_to_variable_in_body) {
+      *it = make_boolean_expr(true);
+      std::cout << "    + Postondition reference to body variable\n";
+    }
+    // std::cout << "After:\n" << it->pretty() << "\n";
   }
 
   // TODO: Gather all postconditions that are in the same exit point
