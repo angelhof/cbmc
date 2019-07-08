@@ -358,9 +358,17 @@ bool refers_to_variable_in_set(exprt expr, std::unordered_set<std::string> varia
 //
 // Question: I have to discuss this implementation with DSN, Kareem, Michael
 //
+// TODO: Unify the disjunction and the conjunction as they do the same
+// thing essentially except for the call to and/or
+//
 // If this function returns nil expression, it means that no postcondition was aggregated.
-exprt postcondition_group_disjunction(const exprt::operandst &op)
+exprt postcondition_group_disjunction(const exprt::operandst &nil_op)
 {
+  exprt::operandst op;
+  
+  // filter non nil expressions
+  std::copy_if (nil_op.begin(), nil_op.end(), std::back_inserter(op), [](exprt e){return e.is_not_nil();} );
+  
   if(op.empty()) {
     // Question: What is a better way to do this?
     exprt expr = exprt(ID_nil);
@@ -374,23 +382,19 @@ exprt postcondition_group_disjunction(const exprt::operandst &op)
   else
   {
     // If the first op is trivially true recurse for free
-    exprt acc = make_boolean_expr(false);
+    auto it = op.begin();
+    exprt op0 = *it;
+    ++it;
+    exprt op1 = *it;
+    ++it;
+    exprt acc = or_exprt(op0, op1);
 
-    for (auto it = op.begin(); it != op.end(); ++it) {
-      // If a condition is nil skip it
-      if (it->is_not_nil()) {
-        acc = or_exprt(acc, *it);
-      }
+    for ( ; it != op.end(); ++it) {
+      // Is this invariant correct?
+      INVARIANT(it->is_not_nil(), "Disjunction of conditions should never have nil arguments as they have been filtered.");
+      acc = or_exprt(acc, *it);
     }
 
-    // This means that we didn't see any non-nil postcondition group
-    if (acc.is_false()) {
-      exprt expr = exprt(ID_nil);
-      INVARIANT(expr.is_nil(), "Postcondition disjunction should be nil if no postcondition group was found.");
-      return expr;
-    }
-
-    // otherwise return acc
     return acc;
   }
 }
