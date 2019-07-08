@@ -349,6 +349,85 @@ bool refers_to_variable_in_set(exprt expr, std::unordered_set<std::string> varia
   return rval;
 }
 
+// Question: Is there a way to optimize this (Returning a balanced
+// tree instead of a chain tree)? Is there a standard function that I
+// can call for this?
+//
+// Question: I have to discuss this implementation with DSN, Kareem, Michael
+//
+// If this function returns nil expression, it means that no postcondition was aggregated.
+exprt postcondition_group_disjunction(const exprt::operandst &op)
+{
+  if(op.empty()) {
+    // Question: What is a better way to do this?
+    exprt expr = exprt(ID_nil);
+    INVARIANT(expr.is_nil(), "Postcondition disjunction should be nil if no postcondition group was found.");
+    return expr;
+    // return make_boolean_expr(true);
+  }
+  else if(op.size()==1) {
+    return op.front();
+  }
+  else
+  {
+    // If the first op is trivially true recurse for free
+    exprt acc = make_boolean_expr(false);
+
+    for (auto it = op.begin(); it != op.end(); ++it) {
+      // If a condition is nil skip it
+      if (it->is_not_nil()) {
+        acc = or_exprt(acc, *it);
+      }
+    }
+
+    // This means that we didn't see any non-nil postcondition group
+    if (acc.is_false()) {
+      exprt expr = exprt(ID_nil);
+      INVARIANT(expr.is_nil(), "Postcondition disjunction should be nil if no postcondition group was found.");
+      return expr;
+    }
+
+    // otherwise return acc
+    return acc;
+  }
+}
+
+// Question: Is there a way to optimize this? Is there a standard
+// function that I can call for this?
+//
+// Question: I have to discuss this implementation with DSN, Kareem, Michael
+//
+// If this function returns nil expression, it means that no (pre/post)condition was aggregated.
+exprt condition_conjunction(const exprt::operandst &op)
+{
+  if(op.empty()) {
+    // Question: What is a better way to do this?
+    exprt expr = exprt(ID_nil);
+    INVARIANT(expr.is_nil(), "Postcondition conjunction should be nil if no postcondition group was found.");
+    return expr;
+    // return make_boolean_expr(true);
+  }
+  else if(op.size()==1) {
+    return op.front();
+  }
+  else
+  {
+    // If the first op is trivially true recurse for free
+    exprt acc = make_boolean_expr(true);
+
+    for (auto it = op.begin(); it != op.end(); ++it) {
+      // Is this invariant correct?
+      INVARIANT(it->is_not_nil(), "Conjunction of conditions should never be called with nil arguments");
+      acc = and_exprt(acc, *it);
+    }
+
+    // This means that we didn't see any non-nil postcondition group
+    INVARIANT(!acc.is_true(), "Assuming that the invariant in the loop holds this should never be the case.");
+
+    return acc;
+  }
+}
+
 exprt aggregate_function_postconditions(ansi_c_declaratort function) {
   exprt function_body = function.value();
   
@@ -390,7 +469,7 @@ exprt aggregate_function_postconditions(ansi_c_declaratort function) {
       }
 
       // Aggregate all the postconditions in a conjunction as they are in sequence
-      aggregated_groups.push_back(conjunction(*group));
+      aggregated_groups.push_back(condition_conjunction(*group));
     }
   }
   
@@ -398,7 +477,9 @@ exprt aggregate_function_postconditions(ansi_c_declaratort function) {
   //
   // TODO: Instead of aggregating into a disjunction, try to
   // aggregate based on the return value
-  return disjunction(aggregated_groups);
+  //
+  // Question: What happens if there is no aggregated group? What should the returned contract be?
+  return postcondition_group_disjunction(aggregated_groups);
 }
 
 // QUESTION: Should I make that static or define it somewhere else?
@@ -415,30 +496,29 @@ exprt aggregate_function_preconditions(ansi_c_declaratort function) {
   // function body before anythinf else.
   //
   // TODO: Maybe I should add a check to ensure that
-  //
-  // WARNING: Similarly with postconditions
-
   
   // Return all the preconditions in a conjunction
   // TODO: I probably have to add metadata to this conjunction
   //
   // Question: It seems that function calls do not have a type. Is it
   // correct to put them in an and expression like that?
-  return conjunction(preconditions);
+
+  // It seems that conjunction returns code that doesn't pass the typecheck
+  return condition_conjunction(preconditions);
 }
 
 // Extends the specified contract (requires/ensures) of the function declaration with the given condition.
 //
-// TODO: What is a way to add as a precondition to this function that
-// declaration should be a function definition, and that condition
-// should be boolean, etc...
+// TODO: What is a way to add as a precondition to [extend_contract]
+// that [declaration] should be a function definition, and that
+// [condition] should be boolean, etc...
 void extend_contract(const irep_namet &contract_name,
                      const exprt condition,
                      ansi_c_declarationt* declaration) {
   exprt old_contract = static_cast<const exprt&>(declaration->find(contract_name));
   if (old_contract.is_nil()) {
     old_contract = make_boolean_expr(true);
-  }
+  } 
   exprt new_contract = and_exprt(old_contract, condition);
   declaration->add(contract_name, new_contract);
 }
@@ -446,63 +526,72 @@ void extend_contract(const irep_namet &contract_name,
 bool ansi_c_languaget::preconditions_to_contracts() {
 
   // QUESTION: What is the canonical way to find function definitions?  
-  std::list<ansi_c_declarationt> declarations = parse_tree.items;
-  for (std::list<ansi_c_declarationt>::iterator it = declarations.begin(); it != declarations.end(); ++it){
+  // std::list<ansi_c_declarationt> declarations = parse_tree.items;
+  for (std::list<ansi_c_declarationt>::iterator it = parse_tree.items.begin(); it != parse_tree.items.end(); ++it){
     std::cout << "Declaration:\n";
 
     // Question: Does it always hold that a declaration either has 0 or 1 declarator?
     if (!it->declarators().empty()) {
       ansi_c_declaratort decl = it->declarator();
       std::cout << "  " << decl.get_name() << "\n";
+
       exprt precondition = aggregate_function_preconditions(decl);
+
       // std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
-      if (!precondition.is_true()) {
+      if (precondition.is_not_nil()) {
         std::cout << "  -- Successfully turned precondition into contract\n";
+        // std::cout << "Previous declaration\n" << it->pretty() << "\n";
+        // Question: Is there any better way of passing a pointer to that declaration?
+        extend_contract(ID_C_spec_requires, precondition, &(*it));
+        // std::cout << "New declaration\n" << it->pretty() << "\n";
       }
-      // std::cout << "Previous declaration\n" << it->pretty() << "\n";
-      // Question: Is there any better way of passing a pointer to that declaration?
-      extend_contract(ID_C_spec_requires, precondition, &(*it));
-      // std::cout << "New declaration\n" << it->pretty() << "\n";
       
-      // exprt postcondition = aggregate_function_conditions("__CPROVER_postcondition", *it2);
       exprt postcondition = aggregate_function_postconditions(decl);
       // std::cout << "Folded postcondition:\n" << postcondition.pretty() << "\n";
-      if (!postcondition.is_false()) {
+
+      // WARNING: This will always succeed if there are at least two
+      // return points in the function even if they have no
+      // postconditions
+      if (postcondition.is_not_nil()) {
         std::cout << "  -- Successfully turned postcondition into contract\n";
+        // // std::cout << "Previous declaration\n" << it->pretty() << "\n";
+        // // Question: Is there any better way of passing a pointer to that declaration?
+        
+        extend_contract(ID_C_spec_ensures, postcondition, &(*it));
+        
+        // it->set(ID_C_spec_ensures, postcondition);
+        // if(decl.get_name() == "s_sift_down" || decl.get_name() == "s_sift_up") {
+        //   std::cout << "New declaration\n" << it->pretty() << "\n";
+        // }
+        // std::cout << "New declaration\n" << it->pretty() << "\n";
       }
-      // std::cout << "Previous declaration\n" << it->pretty() << "\n";
-      // Question: Is there any better way of passing a pointer to that declaration?
-      extend_contract(ID_C_spec_ensures, postcondition, &(*it));
-      // std::cout << "New declaration\n" << it->pretty() << "\n";
-      
     }
   }
+
+  // // Just here for debugging probably delete
+  // std::list<ansi_c_declarationt> declarations1 = parse_tree.items;
+  // for (std::list<ansi_c_declarationt>::iterator it = declarations1.begin(); it != declarations1.end(); ++it){
+  //   std::cout << "Declaration:\n";
+
+  //   // Question: Does it always hold that a declaration either has 0 or 1 declarator?
+  //   if (!it->declarators().empty()) {
+  //     ansi_c_declaratort decl = it->declarator();
+  //     std::cout << "  " << decl.get_name() << "\n";
+  //     if(decl.get_name() == "s_sift_down" || decl.get_name() == "s_sift_up") {
+  //       std::cout << "New declaration\n" << it->pretty() << "\n";
+  //       // it->validate_full();
+  //     }
+  //   }
+  // }
 
   // TODO: Make a check for preconditions and ensure that they happen
   // before anything else in the code. Should this check just be that
   // the preconditions are a prefix of the function body?
-
-  // TODO: Get the preconditions from code
-  //
-  // - Search for all the postconditions as we do about the preconditions.
-  //
-  //   + There are some issues with that. Postconditions might be
-  //     different in each function exit point. The best thing to do
-  //     for start would be to get their disjunction and turn that
-  //     into an ensures. In the future we would like to talk about
-  //     the return value and its correlation with the final
-  //     postcondition.
-  //
-  //   + Postconditions might talk about values that were declared in
-  //     the function. We should filter any postcondition "conjunct"
-  //     that refers to a variable that was declared during the
-  //     function. For start we could just filter out any
-  //     postcondition that refers to anything that is not included in
-  //     the function arguments.
   
   // TODO: I need a way to print the parsed function (with the
   // contract) back to C in order to debug whether the contracts were
-  // added correctly.
+  // added correctly. I might be able to use the code in apply
+  // contracts to print to a goto
   
   // show_parse(std::cout);
   return false;
