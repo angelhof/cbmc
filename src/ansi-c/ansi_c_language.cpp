@@ -284,7 +284,10 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
         ++it;
         while (it != operands.rend() && is_code_postcondition(*it)) {
           // std::cout << "Found postcondition\n" << it->op0().pretty() << "\n";
-          postcondition_group.push_front(it->op0());
+          // op0: is the call to __CPROVER_postcondition
+          // op1: is the arguments to the call
+          // op0: is the first argument which is a boolean condition
+          postcondition_group.push_front(it->op0().op1().op0());
           ++it;
         }
         
@@ -398,8 +401,13 @@ exprt postcondition_group_disjunction(const exprt::operandst &op)
 // Question: I have to discuss this implementation with DSN, Kareem, Michael
 //
 // If this function returns nil expression, it means that no (pre/post)condition was aggregated.
-exprt condition_conjunction(const exprt::operandst &op)
+exprt condition_conjunction(const exprt::operandst &nil_op)
 {
+  exprt::operandst op;
+  
+  // filter non nil expressions
+  std::copy_if (nil_op.begin(), nil_op.end(), std::back_inserter(op), [](exprt e){return e.is_not_nil();} );
+  
   if(op.empty()) {
     // Question: What is a better way to do this?
     exprt expr = exprt(ID_nil);
@@ -413,9 +421,14 @@ exprt condition_conjunction(const exprt::operandst &op)
   else
   {
     // If the first op is trivially true recurse for free
-    exprt acc = make_boolean_expr(true);
+    auto it = op.begin();
+    exprt op0 = *it;
+    ++it;
+    exprt op1 = *it;
+    ++it;
+    exprt acc = and_exprt(op0, op1);
 
-    for (auto it = op.begin(); it != op.end(); ++it) {
+    for ( ; it != op.end(); ++it) {
       // Is this invariant correct?
       INVARIANT(it->is_not_nil(), "Conjunction of conditions should never be called with nil arguments");
       acc = and_exprt(acc, *it);
@@ -516,10 +529,12 @@ void extend_contract(const irep_namet &contract_name,
                      const exprt condition,
                      ansi_c_declarationt* declaration) {
   exprt old_contract = static_cast<const exprt&>(declaration->find(contract_name));
+  exprt new_contract;
   if (old_contract.is_nil()) {
-    old_contract = make_boolean_expr(true);
-  } 
-  exprt new_contract = and_exprt(old_contract, condition);
+    new_contract = condition;
+  } else {
+    new_contract = and_exprt(old_contract, condition);
+  }
   declaration->add(contract_name, new_contract);
 }
 
