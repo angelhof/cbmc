@@ -84,6 +84,7 @@ Author: Daniel Kroening, kroening@kroening.com
 #include "dump_c.h"
 #include "full_slicer.h"
 #include "function.h"
+#include "function_stubs.h"
 #include "havoc_loops.h"
 #include "horn_encoding.h"
 #include "interrupt.h"
@@ -1063,6 +1064,17 @@ void goto_instrument_parse_optionst::instrument_goto_program()
   {
     log.status() << "Applying Code Contracts" << messaget::eom;
     code_contracts(goto_model);
+  }
+
+  // Question: I am not sure whether that is the correct place to add
+  // this option. Or whether it should be in some other order with the
+  // others.
+  if(cmdline.isset("create-function-stub"))
+  {
+    // Question: Should we do this for many functions?
+    std::string function_name = cmdline.get_value("create-function-stub");
+    log.status() << "Creating stub for: " << function_name << messaget::eom;
+    function_stubs(goto_model, function_name);
   }
 
   // replace function pointers, if explicitly requested
