@@ -61,6 +61,9 @@ protected:
     goto_functionst::goto_functiont &goto_function,
     function_modifiest function_modifies);
 
+  const std::string impl_fun_name(
+    const std::string function_name);
+  
   const symbolt &new_tmp_symbol(
     const typet &type,
     const source_locationt &source_location,
@@ -142,31 +145,46 @@ void function_stubst::stub_function(
   //
   // build_havoc_code_at_source_location(requires.source_location(), modifies, goto_function.body);
 
+  // Get the implementation function symbol
+  const symbolt &impl_f_sym =
+    symbol_table.lookup_ref(
+      impl_fun_name(
+        id2string(
+          function_id)));
 
-  // TODO: Add a call to the impl function between the pre and
-  // postconditions. For now don't do anything with its return value
-  // but eventually we should return that too.
+  // Make the function call to the implementation function
+  code_function_callt call(impl_f_sym.symbol_expr());
 
-  // Copy the parameters into an expression vector
-  //
-  // Question: There should be an easier way to do this typecast
-  std::vector<exprt> parameters;
-  const code_typet::parameterst &p=type.parameters();
-    parameters.reserve(p.size());
-    for(code_typet::parameterst::const_iterator it=p.begin();
-        it!=p.end(); it++)
-      parameters.push_back(*it);
+  // Declare a variable to store the return value from the internal call
+  symbol_exprt r =
+    get_fresh_aux_symbol(
+      type.return_type(),
+      id2string(function_id) + "::ret_val",
+      "ret_val",
+      source_locationt(),
+      impl_f_sym.mode,
+      symbol_table)
+    .symbol_expr();
 
-    
-    
+  if(type.return_type()!=empty_typet())
+  {
+    // Declare the return variable and assign to it the return value
+    // of the call
+    goto_function.body.add(goto_programt::make_decl(r));
+    call.lhs()=r;
+  }
+  
+  // Add the parameters as arguments to the call
+  auto parameter_identifiers = type.parameter_identifiers();
+  for (auto it=parameter_identifiers.begin(); it!=parameter_identifiers.end(); it++) {
+    const symbolt &parameter_symbol = ns.lookup(*it);
+    call.arguments().push_back(parameter_symbol.symbol_expr());
+  }
+
   goto_function.body.add(
     goto_programt::make_function_call(
-      code_function_callt(exprt(function_id), parameters)));
-
-  std::cout << requires.pretty() << "\n";
-  
-  // code_function_callt(exprt _lhs, exprt _function, argumentst _arguments);
-
+      code_function_callt(call)));
+  // Maybe: Add location/comments maybe?
   
   // Add the postcondition assumption
   if(ensures.is_not_nil())
@@ -175,13 +193,18 @@ void function_stubst::stub_function(
                                      ensures.source_location()));
   // TODO: Add comment as is done in the loop code
 
+  if(type.return_type()!=empty_typet())
+  {
+    code_returnt return_expr(r);
+    goto_function.body.add(goto_programt::make_return(return_expr));
+  }
+  
   // Append the end of function instruction
   goto_function.body.add(goto_programt::make_end_function(ensures.source_location()));
   
   std::cout << "Function body after adding the assumption: " << "\n";
   goto_function.body.output(ns, function_id, std::cout);
 
-  
   // Question: do I need to call some update or something after I do the changes?
 } 
 
@@ -203,6 +226,21 @@ void function_stubst::operator()()
 
   std::cout << "Function: " << function_name << "\n";
 
+  // Add a declaration of the impl function, that will be called in the function body
+  //
+  // Problem: If we declare this to have a CPROVER PREFIX then dump c doesn't print it
+
+  // Create a new function symbol for the internal implementation
+  // function
+  //
+  // TODO: Change its metadata to be correct
+  //
+  // Question: Is it enough to add it in the symbol_table?
+  symbolt function_symbol = symbol_table.lookup_ref(function_name);
+  function_symbol.name = impl_fun_name(function_name);
+  // std::cout << function_symbol << "\n";
+  symbol_table.add(function_symbol);
+  
   // Question: Is it correct to call stub_function with
   // function_modifies initialized with goto_functions and here
   // have stub_functions? Could something go wrong?
@@ -211,15 +249,41 @@ void function_stubst::operator()()
   // TODO: Find a way to not include any necessary header file in the
   // stub. Maybe add the name of a header file as a second cmdline
   // argument.
-
-  // TODO: Add a declaration of the impl function, that will be called in the function body
   
   // Delete all other functions and just keep the stub so that we can output it in C
   goto_functions.clear();
   goto_functions.update();
   goto_functions.function_map[function_name].copy_from(function_body);
   goto_functions.update();
+
+
+  // TODO: Output C properly and not by calling dump-c. Maybe Michael
+  // knows of a better way to do this?
+  
 }
+
+const std::string function_stubst::impl_fun_name(const std::string function_name) {
+  return "__stub_" + function_name + "_impl";
+}
+
+// This is copied from code_contracts
+//
+// Question: Probably something like that exists in some utils library
+const symbolt &function_stubst::new_tmp_symbol(
+  const typet &type,
+  const source_locationt &source_location,
+  const irep_idt &function_id,
+  const irep_idt &mode)
+{
+  return get_fresh_aux_symbol(
+    type,
+    id2string(function_id) + "::tmp_cc",
+    "tmp_cc",
+    source_location,
+    mode,
+    symbol_table);
+}
+
 
 void function_stubs(goto_modelt &goto_model, std::string function_name)
 {
