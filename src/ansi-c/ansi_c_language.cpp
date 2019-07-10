@@ -230,8 +230,10 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
   // TODO:
   //
   // - Find all postconditions in a straight line before the exit
-  //   point.  Note: This is not trivial to do, as postconditions
-  //   might not be in an uninterrupted sequence (is that possible?)
+  //   point.
+  //
+  //   Warning: This doesn't work if postconditions are not an
+  //   uninterrupted sequence
   //
   //   Note: Postconditions don't make sense if they are not just
   //   before the function exit point. If some "effectful" operation
@@ -296,6 +298,36 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
       }
     }
   }
+
+  // If postconditions vec is empty, it means that no return statement
+  // was found. This is possible in case of void functions and then
+  // postconditions should be searched from the end of the function
+  // body
+  if (postconditions.empty()) {
+    
+    exprt::operandst operands = function_body.operands();
+    
+    // Find all the consecutive postconditions at the end fo the block
+    exprt::operandst::reverse_iterator it = operands.rbegin();
+    std::list<exprt> postcondition_group;
+    while (it != operands.rend() && is_code_postcondition(*it)) {
+      // std::cout << "Found postcondition\n" << it->op0().pretty() << "\n";
+      // op0: is the call to __CPROVER_postcondition
+      // op1: is the arguments to the call
+      // op0: is the first argument which is a boolean condition
+      postcondition_group.push_front(it->op0().op1().op0());
+      ++it;
+    }
+      
+    exprt::operandst postcondition_group_vec(postcondition_group.begin(), postcondition_group.end());
+    postconditions.push_back(postcondition_group_vec);
+  }
+
+  // Question: Is there an "easy" way to assert that the
+  // postconditions vector has length equal to the number of exit
+  // points in the function.
+  INVARIANT(!postconditions.empty(),
+            "The postconditions vector should never be empty. It's length should be equal to the number of exit points in the function");
   
   return postconditions;
 }
@@ -564,10 +596,10 @@ bool ansi_c_languaget::preconditions_to_contracts() {
         extend_contract(ID_C_spec_requires, precondition, &(*it));
         // std::cout << "New declaration\n" << it->pretty() << "\n";
       }
-      
+
       exprt postcondition = aggregate_function_postconditions(decl);
       // std::cout << "Folded postcondition:\n" << postcondition.pretty() << "\n";
-
+      
       // WARNING: This will always succeed if there are at least two
       // return points in the function even if they have no
       // postconditions
