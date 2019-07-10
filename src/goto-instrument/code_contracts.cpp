@@ -13,9 +13,6 @@ Date: February 2016
 
 #include "code_contracts.h"
 
-#include <fstream>
-#include <iostream>
-
 #include <util/expr_util.h>
 #include <util/fresh_symbol.h>
 #include <util/replace_symbol.h>
@@ -27,7 +24,6 @@ Date: February 2016
 #include <linking/static_lifetime_init.h>
 
 #include "loop_utils.h"
-#include "function_modifies.h"
 
 class code_contractst
 {
@@ -55,11 +51,6 @@ protected:
 
   void code_contracts(goto_functionst::goto_functiont &goto_function);
 
-  void stub_function(
-    const irep_idt &function_id,
-    goto_functionst::goto_functiont &goto_function,
-    function_modifiest function_modifies);
-  
   void apply_contract(
     goto_programt &goto_program,
     goto_programt::targett target);
@@ -166,31 +157,17 @@ void code_contractst::apply_contract(
   goto_programt &goto_program,
   goto_programt::targett target)
 {
-  /* target is a function call instruction, so we can get function
-   * call out of it */
   const code_function_callt &call = target->get_function_call();
 
   // we don't handle function pointers
   if(call.function().id()!=ID_symbol)
     return;
 
-  /* We can get the function out of the call, and then using the
-   * symbolic expression translatior, we can get its identifier.
-   * 
-   * The first call is just a cast, and then a call to get identifier.
-   * 
-   * We then find the function name in the symbol lookup table
-   *
-   * We then turn its type into code_type (WHAT IS THAT?)  Probably
-   * type is the declaration of the function, so its return type, its
-   * name etc
-   */
   const irep_idt &function=
     to_symbol_expr(call.function()).get_identifier();
   const symbolt &f_sym=ns.lookup(function);
   const code_typet &type=to_code_type(f_sym.type);
 
-  /* We then find the requires and ensures of the spec */
   exprt requires=
     static_cast<const exprt&>(type.find(ID_C_spec_requires));
   exprt ensures=
@@ -200,9 +177,6 @@ void code_contractst::apply_contract(
   if(ensures.is_nil())
     return;
 
-  /* We build a replace table that is an association map from the
-   * formal names to the real call arguments. */
-  
   // replace formal parameters by arguments, replace return
   replace_symbolt replace;
 
@@ -227,8 +201,6 @@ void code_contractst::apply_contract(
       replace.insert(p, *a_it);
     }
 
-  /* Then we use this replace table, to replace all names in requires
-   * and ensures with the correct ones. */
   replace(requires);
   replace(ensures);
 
@@ -237,18 +209,13 @@ void code_contractst::apply_contract(
     goto_programt::instructiont a =
       goto_programt::make_assertion(requires, target->source_location);
 
-    /* It seems that this call preserves jumps to the target or
-     * something, when it inserts. */
     goto_program.insert_before_swap(target, a);
-    /* However now the target points one after? */
     ++target;
   }
 
   // overwrite the function call
   *target = goto_programt::make_assumption(ensures, target->source_location);
 
-  /* Add it to the summarized set, which is a set of functions that
-   * where indeed summarized :) */
   summarized.insert(function);
 }
 
@@ -269,102 +236,11 @@ void code_contractst::code_contracts(
       l_it->first,
       l_it->second);
 
-  // std::cout << "Fasi" << goto_function.type << "\n";
-  
   // look at all function calls
   Forall_goto_program_instructions(it, goto_function.body)
     if(it->is_function_call())
       apply_contract(goto_function.body, it);
 }
-
-// This function is based on code_contractst::code_contracts/1
-//
-// It creates a stub for each function based on the associated
-// requires and ensures
-void code_contractst::stub_function(
-  const irep_idt &function_id,
-  goto_functionst::goto_functiont &goto_function,
-  function_modifiest function_modifies)
-{ 
-  // Get the function requires and ensures
-  const symbolt &f_sym=ns.lookup(function_id);
-  const code_typet &type=to_code_type(f_sym.type);
-  
-  const exprt &requires=
-    static_cast<const exprt&>(type.find(ID_C_spec_requires));
-  const exprt &ensures=
-    static_cast<const exprt&>(type.find(ID_C_spec_ensures));
-
-  // TODO: We probably have to produce a warning or exit if there is
-  // no contract.
- 
-  // Question: What about variables that were declared in the function
-  // body but are contained in the ensures?
-
-  // Find what is modified in the function.
-  //
-  // Question: Is this a sound analysis? If so, then it will also
-  // havoc memory locations?
-  //
-  // There is another problem. The modifies analysis should happen
-  // before the stubs because otherwise havocing some modified
-  // variable may make the approximation more loose if we then do an
-  // analysis on a function that calls the already havoced function.
-  modifiest modifies;
-  local_may_aliast local_may_alias(goto_function);
-  const goto_programt &goto_program = goto_function.body;
-
-  // get_modifies(local_may_alias, goto_program, modifies)
-    
-  forall_goto_program_instructions(i_it, goto_program)
-    function_modifies.get_modifies(local_may_alias, i_it, modifies);
-
-  // Clear the function body
-  goto_function.body.clear();
-
-  // Add the assertion in the function body
-  if(requires.is_not_nil())
-    goto_function.body.add(
-      goto_programt::make_assertion(requires,
-                                    requires.source_location()));
-    // TODO: Add a comment in the source location of the assertion
-  
-  // Havoc the may-change variables.
-  //
-  // TODO: This probably needs improvement. I am not sure whether it
-  // is really sound havoc. Whether it really havocs all the necessary
-  // variables/memory locations.
-  //
-  // Question: This is defined in loop_utils. Does this only work for
-  // loop code? Inspect and make sure that it works for any code.
-  //
-  // Problem: Havoc introduces a lot of random variables and havocs
-  // them so we should probably do some unused variable analysis after
-  // the stub generation to cut them
-  //
-  // Problem: The havoc doesn't havoc any memory location
-  //
-  // Problem: The modifies analysis doesnt find that dst of memcpy is
-  // indeed modified and so it doesn't havoc it.
-  //
-  // build_havoc_code_at_source_location(requires.source_location(), modifies, goto_function.body);
-  
-  // Add the postcondition assumption
-  if(ensures.is_not_nil())
-    goto_function.body.add(
-      goto_programt::make_assumption(ensures,
-                                     ensures.source_location()));
-  // TODO: Add comment as is done in the loop code
-
-  // Append the end of function instruction
-  goto_function.body.add(goto_programt::make_end_function(ensures.source_location()));
-  
-  std::cout << "Function body after adding the assumption: " << "\n";
-  goto_function.body.output(ns, function_id, std::cout);
-
-  
-  // Question: do I need to call some update or something after I do the changes?
-} 
 
 const symbolt &code_contractst::new_tmp_symbol(
   const typet &type,
@@ -496,49 +372,19 @@ void code_contractst::add_contract_check(
 
 void code_contractst::operator()()
 {
-  // We should first find all the modifies of all functions, and then
-  // stub out the ones that we want.
-  //
-  // Question: Is it safe to change the goto_functions after giving
-  // them to function_modifies?
+  Forall_goto_functions(it, goto_functions)
+    code_contracts(it->second);
 
-  // Make a new copy of the goto functions
-  goto_functionst stub_functions;
-  stub_functions.copy_from(goto_functions);
-  // Question: Is this update necessary?
-  stub_functions.update();
+  goto_functionst::function_mapt::iterator i_it=
+    goto_functions.function_map.find(INITIALIZE_FUNCTION);
+  assert(i_it!=goto_functions.function_map.end());
 
-  // Do the function_modifies analysis to all goto_functions.
-  function_modifiest function_modifies(goto_functions);
+  for(const auto &contract : summarized)
+    add_contract_check(contract, i_it->second.body);
 
-  // Iterate over the stub functions
-  Forall_goto_functions(it, stub_functions)
-  {
-    /* We have to create a stub for each function in the goto file
-     * (that is not in the -no-stub list */
-    if(it->first == "s_sift_down" || it->first == "s_sift_up") {
-      std::cout << "Function: " << it->first << "\n";
+  // remove skips
+  remove_skip(i_it->second.body);
 
-      // Question: Is it correct to call stub_function with
-      // function_modifies initialized with goto_functions and here
-      // have stub_functions? Could something go wrong?
-      stub_function(it->first, it->second, function_modifies);
-    }
-  }
-  stub_functions.update();
-  stub_functions.validate(ns, validation_modet::INVARIANT);
-  
-  // goto_functionst::function_mapt::iterator i_it=
-  //   goto_functions.function_map.find(INITIALIZE_FUNCTION);
-  // assert(i_it!=goto_functions.function_map.end());
-
-  // for(const auto &contract : summarized)
-  //   add_contract_check(contract, i_it->second.body);
-
-  // // remove skips
-  // remove_skip(i_it->second.body);
-
-  goto_functions.copy_from(stub_functions);
   goto_functions.update();
 }
 
