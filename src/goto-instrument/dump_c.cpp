@@ -282,17 +282,23 @@ void dump_ct::operator()(std::ostream &os)
        << "#endif\n\n";
   }
 
-  if(!global_decl_stream.str().empty())
+  
+  if(!global_decl_stream.str().empty() && !create_c_stub)
     os << global_decl_stream.str() << '\n';
 
-  dump_typedefs(os);
+  if(!create_c_stub)
+    dump_typedefs(os);
 
-  if(!func_decl_stream.str().empty())
+  if(!func_decl_stream.str().empty() && !create_c_stub)
     os << func_decl_stream.str() << '\n';
-  if(!compound_body_stream.str().empty())
+  if(!compound_body_stream.str().empty() && !create_c_stub)
     os << compound_body_stream.str() << '\n';
-  if(!global_var_stream.str().empty())
+  if(!global_var_stream.str().empty() && !create_c_stub)
     os << global_var_stream.str() << '\n';
+
+  // TODO: I have to dump the include headers
+  // TODO: I have to dump the declaration of the implementation body
+
   os << func_body_stream.str();
 }
 
@@ -1403,6 +1409,7 @@ void dump_c(
   const bool use_all_headers,
   const bool include_harness,
   const namespacet &ns,
+  const bool c_stub,
   std::ostream &out)
 {
   dump_ct goto2c(
@@ -1411,6 +1418,7 @@ void dump_c(
     use_all_headers,
     include_harness,
     ns,
+    c_stub,
     new_ansi_c_language);
   out << goto2c;
 }
@@ -1421,6 +1429,7 @@ void dump_cpp(
   const bool use_all_headers,
   const bool include_harness,
   const namespacet &ns,
+  const bool c_stub,
   std::ostream &out)
 {
   dump_ct goto2cpp(
@@ -1429,6 +1438,7 @@ void dump_cpp(
     use_all_headers,
     include_harness,
     ns,
+    c_stub,
     new_cpp_language);
   out << goto2cpp;
 }

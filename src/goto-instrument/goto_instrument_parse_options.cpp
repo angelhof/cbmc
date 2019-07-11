@@ -640,9 +640,10 @@ int goto_instrument_parse_optionst::doit()
       return CPROVER_EXIT_SUCCESS;
     }
 
-    if(cmdline.isset("dump-c") || cmdline.isset("dump-cpp"))
+    if(cmdline.isset("dump-c") || cmdline.isset("dump-cpp") || cmdline.isset("c-stub"))
     {
       const bool is_cpp=cmdline.isset("dump-cpp");
+      const bool c_stub=cmdline.isset("c-stub");
       const bool h_libc=!cmdline.isset("no-system-headers");
       const bool h_all=cmdline.isset("use-all-headers");
       const bool harness=cmdline.isset("harness");
@@ -670,6 +671,7 @@ int goto_instrument_parse_optionst::doit()
           h_all,
           harness,
           ns,
+          c_stub,
           out);
       }
       else
@@ -679,6 +681,7 @@ int goto_instrument_parse_optionst::doit()
           h_all,
           harness,
           ns,
+          c_stub,
           std::cout);
 
       return CPROVER_EXIT_SUCCESS;
