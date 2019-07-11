@@ -649,6 +649,14 @@ int goto_instrument_parse_optionst::doit()
       const bool harness=cmdline.isset("harness");
       namespacet ns(goto_model.symbol_table);
 
+      INVARIANT(!c_stub ||
+                (!cmdline.isset("dump-c") &&
+                 !cmdline.isset("dump-cpp") &&
+                 !cmdline.isset("no-system-headers") &&
+                 !cmdline.isset("use-all-headers") &&
+                 !cmdline.isset("harness")),
+                "c-stub should not be set together with dump-c or dump-cpp"); 
+      
       // restore RETURN instructions in case remove_returns had been
       // applied
       restore_returns(goto_model);
