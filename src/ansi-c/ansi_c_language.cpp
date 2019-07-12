@@ -138,58 +138,31 @@ bool ansi_c_languaget::generate_support_functions(
     symbol_table, get_message_handler(), object_factory_params);
 }
 
-// Question: Are those [is_*] functions correct?
-
-// Question: There should be a better (cleaner) way to do this
+// Question: Are those [is_*] functions correct? Are they sound/complete?
 bool is_call_to_function(std::string function_name, exprt expr) {
-  // Question: What is the difference between base name and identifier?
-      
-  // Question: Isn't there a canonical way to access fields
-  // of an expression with methods, or finding the id of an
-  // expression with methods such as "is_symbol" or
-  // operand.identifier
-  
-  return expr.id() == "side_effect"
-    && expr.find(ID_statement).id() == "function_call"
-    && expr.op0().id() == "symbol"
-    && expr.op0().find(ID_identifier).id() == function_name;
+  if(can_cast_expr<side_effect_expr_function_callt>(expr))
+  {
+    const side_effect_expr_function_callt function_call = to_side_effect_expr_function_call(expr);
+    const exprt function = function_call.function();
+    
+    if(can_cast_expr<symbol_exprt>(function))
+    {
+      const symbol_exprt function_symbol = to_symbol_expr(function);
+      return function_symbol.get_identifier() == function_name;
+    }
+  }
+  return false;
 }
 
 bool is_code_postcondition(exprt expr) {
-  return expr.find(ID_statement).is_not_nil()
-    && expr.get(ID_statement) == "expression"
-    && is_call_to_function("__CPROVER_postcondition", expr.op0());
+  if(can_cast_expr<code_expressiont>(expr))
+  {
+    exprt expr0 = to_code_expression(to_code(expr)).expression();
+    return is_call_to_function("__CPROVER_postcondition", expr0);
+  }
+  return false;
 }
 
-// Question: Is this name reasonable?
-// Question: There is probably a better way to do that
-bool is_symbol(exprt expr) {
-  // Question: What is the difference between base name and identifier?
-      
-  // Question: Isn't there a canonical way to access fields
-  // of an expression with methods, or finding the id of an
-  // expression with methods such as "is_symbol" or
-  // operand.identifier
-  
-  return expr.id() == "symbol";
-}
-
-bool is_variable_declaration(exprt expr) {
-  // Question: What is the difference between base name and identifier?
-      
-  // Question: Isn't there a canonical way to access fields
-  // of an expression with methods, or finding the id of an
-  // expression with methods such as "is_symbol" or
-  // operand.identifier
-  
-  return expr.find(ID_statement).is_not_nil()
-    && expr.get(ID_statement) == "decl";
-}
-
-bool is_return_statement(exprt expr) {
-  return expr.find(ID_statement).is_not_nil()
-    && expr.get(ID_statement) == "return";
-}
 
 exprt::operandst filter_pre_post_conditions(std::string target_function_name, exprt function_body) {
   // TODO: I probably have to add some check that inside the
@@ -204,7 +177,8 @@ exprt::operandst filter_pre_post_conditions(std::string target_function_name, ex
     // std::cout << it->id() << " -- " << it->find(ID_statement).id() << "\n";
     // Filters the function calls
     if (is_call_to_function(target_function_name, *it)) {
-      exprt condition = it->op1().op0();
+      const side_effect_expr_function_callt function_call = to_side_effect_expr_function_call(*it);
+      exprt condition = function_call.arguments().front();
       // std::cout << "Precondition:\n" << precondition.pretty() << "\n";
       // std::cout << "Precondition type:\n" << precondition.type().id() << "\n";
       
@@ -266,6 +240,8 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
   for (depth_iteratort d_it = function_body.depth_begin(); d_it != function_body.depth_end(); ++d_it) {
     // If the list of operands of this node contains a return then get
     // all the postconditions before that return.
+    //
+    // Question: If this can only be a block, i shoult cast to a block
     exprt::operandst operands = d_it->operands();
     
     // Find all the return statement in the block
@@ -273,12 +249,12 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
     while (it != operands.rend()) {
       
       // Find the last return statement
-      for (; it != operands.rend() && !is_return_statement(*it); ++it)
+      for (; it != operands.rend() && !can_cast_expr<code_returnt>(*it); ++it)
         ;
       
       // If a return statement was indeed found in the operands
       if (it != operands.rend()) {
-        assert(is_return_statement(*it));
+        assert(can_cast_expr<code_returnt>(*it));
         // std::cout << "Found return statement\n" << return_statement->pretty() << "\n";
         // Collect all postconditions that are in sequence before the
         // return statement
@@ -287,9 +263,10 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
         while (it != operands.rend() && is_code_postcondition(*it)) {
           // std::cout << "Found postcondition\n" << it->op0().pretty() << "\n";
           // op0: is the call to __CPROVER_postcondition
-          // op1: is the arguments to the call
-          // op0: is the first argument which is a boolean condition
-          postcondition_group.push_front(it->op0().op1().op0());
+          const code_expressiont code_expr = to_code_expression(to_code(*it));
+          const side_effect_expr_function_callt function_call = to_side_effect_expr_function_call(code_expr.expression());
+          // The first argument which is a boolean condition
+          postcondition_group.push_front(function_call.arguments().front());
           ++it;
         }
         
@@ -333,24 +310,25 @@ std::vector<exprt::operandst> collect_postconditions(exprt function_body) {
 }
 
 // This function finds all the names of variables declared in the function body.
-std::unordered_set<std::string> get_body_variable_names(exprt function_body) {
-  std::unordered_set<std::string> body_variable_names;
+std::unordered_set<irep_idt> get_body_variable_names(exprt function_body) {
+  std::unordered_set<irep_idt> body_variable_names;
   for (depth_iteratort d_it = function_body.depth_begin(); d_it != function_body.depth_end(); ++d_it) {
     
     // Question: What is the correct way of finding all variable
     // declarations in the function body?
     //
     // Filters the variable declarations
-    if (is_variable_declaration(*d_it)) {
+    if (can_cast_expr<code_declt>(*d_it)) {
       // std::cout << "Variable Declaration:\n";
       // std::cout << d_it->pretty() << "\n";
-      
+
+      // Question: Is there a proper way to get the variables from a declaration?
       exprt::operandst declared_vars = d_it->op0().operands();
       
       // Keep the name of all declared variables in the function body
       for (exprt::operandst::iterator it = declared_vars.begin(); it != declared_vars.end(); ++it) {
         // std::cout << it->pretty() << "\n";
-        std::string var_name = it->get_string(ID_name);
+        irep_idt var_name = it->get(ID_name);
         // std::cout << var_name << "\n";
         body_variable_names.insert(var_name);
       }
@@ -367,14 +345,16 @@ std::unordered_set<std::string> get_body_variable_names(exprt function_body) {
 
 // Returns true if the expression refers to a variable in the given
 // set of variable names
-bool refers_to_variable_in_set(exprt expr, std::unordered_set<std::string> variable_names) {
+bool refers_to_variable_in_set(exprt expr, std::unordered_set<irep_idt> variable_names) {
   bool rval = false;
-  for (depth_iteratort d_it = expr.depth_begin(); d_it != expr.depth_end(); ++d_it) {   
+  for(depth_iteratort d_it = expr.depth_begin(); d_it != expr.depth_end(); ++d_it)
+  {   
     // Question: What is the correct way of finding all variable references?
     // Filters the variable references
-    if (is_symbol(*d_it)) {
+    if(can_cast_expr<symbol_exprt>(*d_it))
+    {
       // std::cout << d_it->pretty() << "\n";
-      std::string var_name = d_it->get_string(ID_identifier);
+      const irep_idt var_name = to_symbol_expr(*d_it).get_identifier();
       if (variable_names.find(var_name) != variable_names.end()) {
         rval = true;
         break;
@@ -481,7 +461,7 @@ exprt aggregate_function_postconditions(ansi_c_declaratort function) {
   exprt function_body = function.value();
   
   // Gather the variable names that were declared in the function body
-  std::unordered_set<std::string> body_variable_names = get_body_variable_names(function_body);
+  std::unordered_set<irep_idt> body_variable_names = get_body_variable_names(function_body);
 
   exprt::operandst aggregated_groups;
   
@@ -586,6 +566,10 @@ bool ansi_c_languaget::preconditions_to_contracts() {
       ansi_c_declaratort decl = it->declarator();
       std::cout << "  " << decl.get_name() << "\n";
 
+      if(decl.get_name() == "s_sift_down") {
+        std::cout << "Boyd:\n" << decl.value().pretty() <<"\n";
+      }
+      
       exprt precondition = aggregate_function_preconditions(decl);
 
       // std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";

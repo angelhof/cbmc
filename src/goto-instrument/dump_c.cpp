@@ -228,8 +228,6 @@ void dump_ct::operator()(std::ostream &os)
     if(symbol.type.id()!=ID_code ||
        symbol.is_type)
       continue;
-
-    std::cout << symbol.display_name() << "\n";
     
     convert_function_declaration(
       symbol,
