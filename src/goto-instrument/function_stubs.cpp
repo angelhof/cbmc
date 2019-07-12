@@ -60,9 +60,6 @@ protected:
     const irep_idt &function_id,
     goto_functionst::goto_functiont &goto_function,
     function_modifiest function_modifies);
-
-  const std::string impl_fun_name(
-    const std::string function_name);
   
   const symbolt &new_tmp_symbol(
     const typet &type,
@@ -238,8 +235,24 @@ void function_stubst::operator()()
   // Question: Is it enough to add it in the symbol_table?
   symbolt function_symbol = symbol_table.lookup_ref(function_name);
   function_symbol.name = impl_fun_name(function_name);
+  function_symbol.location = source_locationt();
+
+  
+  // Question: Maybe I should also change the module?
+  
+  // Question: Is it correct to change all names with that name?
+
+  function_symbol.base_name = impl_fun_name(function_name);
+  function_symbol.pretty_name = impl_fun_name(function_name);
   // std::cout << function_symbol << "\n";
+
+  // Question: Is this the correct way to add the symbol to the symbol table? Does this change cascade to the namespace?
+  //
+  // Question: Should I somehow check and get a fresh name if this is already used?
+  INVARIANT(!symbol_table.has_symbol(function_symbol.name), "The implementation symbol shouldn't exist in the symbol table.");
   symbol_table.add(function_symbol);
+  
+
   
   // Question: Is it correct to call stub_function with
   // function_modifies initialized with goto_functions and here
@@ -262,9 +275,6 @@ void function_stubst::operator()()
   
 }
 
-const std::string function_stubst::impl_fun_name(const std::string function_name) {
-  return "__stub_" + function_name + "_impl";
-}
 
 // This is copied from code_contracts
 //
@@ -288,4 +298,8 @@ const symbolt &function_stubst::new_tmp_symbol(
 void function_stubs(goto_modelt &goto_model, std::string function_name)
 {
   function_stubst(goto_model.symbol_table, goto_model.goto_functions, function_name)();
+}
+
+const std::string impl_fun_name(const std::string function_name) {
+  return "__stub_" + function_name + "_impl";
 }

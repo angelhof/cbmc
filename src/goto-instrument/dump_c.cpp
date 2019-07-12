@@ -21,8 +21,12 @@ Author: Daniel Kroening, kroening@kroening.com
 
 #include <linking/static_lifetime_init.h>
 
+#include <iostream>
+
 #include "dump_c_class.h"
+#include "function_stubs.h"
 #include "goto_program2code.h"
+
 
 inline std::ostream &operator << (std::ostream &out, dump_ct &src)
 {
@@ -225,6 +229,8 @@ void dump_ct::operator()(std::ostream &os)
        symbol.is_type)
       continue;
 
+    std::cout << symbol.display_name() << "\n";
+    
     convert_function_declaration(
       symbol,
       skip_function_main,
@@ -283,22 +289,21 @@ void dump_ct::operator()(std::ostream &os)
   }
 
   
-  if(!global_decl_stream.str().empty() && !create_c_stub)
+  if(!global_decl_stream.str().empty() && !stub_name.has_value())
     os << global_decl_stream.str() << '\n';
 
-  if(!create_c_stub)
+  if(!stub_name.has_value())
     dump_typedefs(os);
 
-  if(!func_decl_stream.str().empty() && !create_c_stub)
+  if(!func_decl_stream.str().empty())
     os << func_decl_stream.str() << '\n';
-  if(!compound_body_stream.str().empty() && !create_c_stub)
+  if(!compound_body_stream.str().empty() && !stub_name.has_value())
     os << compound_body_stream.str() << '\n';
-  if(!global_var_stream.str().empty() && !create_c_stub)
+  if(!global_var_stream.str().empty() && !stub_name.has_value())
     os << global_var_stream.str() << '\n';
 
   // TODO: I have to dump the include headers
-  // TODO: I have to dump the declaration of the implementation body
-
+  
   os << func_body_stream.str();
 }
 
@@ -1041,14 +1046,19 @@ void dump_ct::convert_function_declaration(
     declared_enum_constants.swap(enum_constants_bak);
   }
 
-  if(symbol.name!=goto_functionst::entry_point() &&
-     symbol.name!=ID_main)
+  if((!stub_name.has_value() &&
+     symbol.name!=goto_functionst::entry_point() &&
+     symbol.name!=ID_main) ||
+     (stub_name.has_value() &&
+      symbol.name == impl_fun_name(as_string(stub_name.value()))))
   {
     os_decl << "// " << symbol.name << '\n';
     os_decl << "// " << symbol.location << '\n';
     os_decl << make_decl(symbol.name, symbol.type) << ";\n";
   }
-  else if(harness && symbol.name==ID_main)
+  else if(!stub_name.has_value() &&
+          harness &&
+          symbol.name==ID_main)
   {
     os_decl << "// " << symbol.name << '\n';
     os_decl << "// " << symbol.location << '\n';
@@ -1409,7 +1419,7 @@ void dump_c(
   const bool use_all_headers,
   const bool include_harness,
   const namespacet &ns,
-  const bool c_stub,
+  const optionalt<irep_idt> stub_name,
   std::ostream &out)
 {
   dump_ct goto2c(
@@ -1418,7 +1428,7 @@ void dump_c(
     use_all_headers,
     include_harness,
     ns,
-    c_stub,
+    stub_name,
     new_ansi_c_language);
   out << goto2c;
 }
@@ -1429,7 +1439,7 @@ void dump_cpp(
   const bool use_all_headers,
   const bool include_harness,
   const namespacet &ns,
-  const bool c_stub,
+  const optionalt<irep_idt> stub_name,
   std::ostream &out)
 {
   dump_ct goto2cpp(
@@ -1438,7 +1448,7 @@ void dump_cpp(
     use_all_headers,
     include_harness,
     ns,
-    c_stub,
+    stub_name,
     new_cpp_language);
   out << goto2cpp;
 }

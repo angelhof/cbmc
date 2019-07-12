@@ -20,4 +20,6 @@ class goto_modelt;
 
 void function_stubs(goto_modelt &, std::string function_name);
 
+const std::string impl_fun_name(const std::string function_name);
+
 #endif // CPROVER_GOTO_INSTRUMENT_FUNCTION_STUBS_H

@@ -30,14 +30,14 @@ public:
     const bool use_all_headers,
     const bool include_harness,
     const namespacet &_ns,
-    const bool c_stub,
+    const optionalt<irep_idt> _stub_name,
     language_factoryt factory):
     goto_functions(_goto_functions),
     copied_symbol_table(_ns.get_symbol_table()),
     ns(copied_symbol_table),
     language(factory()),
     harness(include_harness),
-    create_c_stub(c_stub),
+    stub_name(_stub_name),
     system_symbols(use_system_headers)
   {
     system_symbols.set_use_all_headers(use_all_headers);
@@ -53,7 +53,8 @@ protected:
   const namespacet ns;
   std::unique_ptr<languaget> language;
   const bool harness;
-  const bool create_c_stub;
+  const optionalt<irep_idt> stub_name;
+
   
   typedef std::unordered_set<irep_idt> convertedt;
   convertedt converted_compound, converted_global, converted_enum;

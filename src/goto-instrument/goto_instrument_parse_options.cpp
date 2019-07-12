@@ -640,10 +640,10 @@ int goto_instrument_parse_optionst::doit()
       return CPROVER_EXIT_SUCCESS;
     }
 
-    if(cmdline.isset("dump-c") || cmdline.isset("dump-cpp") || cmdline.isset("c-stub"))
+    if(cmdline.isset("dump-c") || cmdline.isset("dump-cpp") || cmdline.isset("create-function-stub"))
     {
       const bool is_cpp=cmdline.isset("dump-cpp");
-      const bool c_stub=cmdline.isset("c-stub");
+      const bool c_stub=cmdline.isset("create-function-stub");
       const bool h_libc=!cmdline.isset("no-system-headers");
       const bool h_all=cmdline.isset("use-all-headers");
       const bool harness=cmdline.isset("harness");
@@ -656,6 +656,12 @@ int goto_instrument_parse_optionst::doit()
                  !cmdline.isset("use-all-headers") &&
                  !cmdline.isset("harness")),
                 "c-stub should not be set together with dump-c or dump-cpp"); 
+
+      optionalt<irep_idt> stub_name;
+      if(c_stub)
+        stub_name.emplace(cmdline.get_value("create-function-stub"));
+      else
+        stub_name.reset();
       
       // restore RETURN instructions in case remove_returns had been
       // applied
@@ -679,7 +685,7 @@ int goto_instrument_parse_optionst::doit()
           h_all,
           harness,
           ns,
-          c_stub,
+          stub_name,
           out);
       }
       else
@@ -689,7 +695,7 @@ int goto_instrument_parse_optionst::doit()
           h_all,
           harness,
           ns,
-          c_stub,
+          stub_name,
           std::cout);
 
       return CPROVER_EXIT_SUCCESS;
