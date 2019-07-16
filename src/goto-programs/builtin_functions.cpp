@@ -750,7 +750,8 @@ void goto_convertt::do_function_call_symbol(
     }
   }
   else if(identifier==CPROVER_PREFIX "assert" ||
-          identifier==CPROVER_PREFIX "precondition")
+          identifier==CPROVER_PREFIX "precondition" ||
+          identifier==CPROVER_PREFIX "postcondition")
   {
     if(arguments.size()!=2)
     {
@@ -762,7 +763,9 @@ void goto_convertt::do_function_call_symbol(
 
     bool is_precondition=
       identifier==CPROVER_PREFIX "precondition";
-
+    bool is_postcondition=
+      identifier==CPROVER_PREFIX "postcondition";
+    
     const irep_idt description=
       get_string_constant(arguments[1]);
 
@@ -774,6 +777,10 @@ void goto_convertt::do_function_call_symbol(
     if(is_precondition)
     {
       t->source_location.set_property_class(ID_precondition);
+    }
+    else if(is_postcondition)
+    {
+      t->source_location.set_property_class(ID_postcondition);
     }
     else
     {
