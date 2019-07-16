@@ -255,28 +255,41 @@ void dump_ct::operator()(std::ostream &os)
 
   // Dump the code to the target stream;
   // the statements before to this point collect the code to dump!
-  for(std::set<std::string>::const_iterator
-      it=system_headers.begin();
-      it!=system_headers.end();
-      ++it)
-    os << "#include <" << *it << ">\n";
-  if(!system_headers.empty())
-    os << '\n';
-
-  if(global_var_stream.str().find("NULL")!=std::string::npos ||
-     func_body_stream.str().find("NULL")!=std::string::npos)
+  if(!stub_name.has_value())
+  {
+    for(std::set<std::string>::const_iterator
+          it=system_headers.begin();
+        it!=system_headers.end();
+        ++it)
+      os << "#include <" << *it << ">\n";
+    if(!system_headers.empty())
+      os << '\n';
+  }
+  else
+  {
+    // When generating a stub, we should just generate a stub header,
+    // since the included header information is not present in the
+    // goto_model.
+    os << "#include <stub_header.h>\n\n";
+  }
+  
+  if((global_var_stream.str().find("NULL")!=std::string::npos ||
+      func_body_stream.str().find("NULL")!=std::string::npos) &&
+     !stub_name.has_value())
   {
     os << "#ifndef NULL\n"
        << "#define NULL ((void*)0)\n"
        << "#endif\n\n";
   }
-  if(func_body_stream.str().find("FENCE")!=std::string::npos)
+  if(func_body_stream.str().find("FENCE")!=std::string::npos &&
+     !stub_name.has_value())
   {
     os << "#ifndef FENCE\n"
        << "#define FENCE(x) ((void)0)\n"
        << "#endif\n\n";
   }
-  if(func_body_stream.str().find("IEEE_FLOAT_")!=std::string::npos)
+  if(func_body_stream.str().find("IEEE_FLOAT_")!=std::string::npos &&
+    !stub_name.has_value())
   {
     os << "#ifndef IEEE_FLOAT_EQUAL\n"
        << "#define IEEE_FLOAT_EQUAL(x,y) ((x)==(y))\n"
@@ -299,8 +312,6 @@ void dump_ct::operator()(std::ostream &os)
     os << compound_body_stream.str() << '\n';
   if(!global_var_stream.str().empty() && !stub_name.has_value())
     os << global_var_stream.str() << '\n';
-
-  // TODO: I have to dump the include headers
   
   os << func_body_stream.str();
 }

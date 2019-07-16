@@ -565,10 +565,6 @@ bool ansi_c_languaget::preconditions_to_contracts() {
     if (!it->declarators().empty()) {
       ansi_c_declaratort decl = it->declarator();
       std::cout << "  " << decl.get_name() << "\n";
-
-      if(decl.get_name() == "s_sift_down") {
-        std::cout << "Boyd:\n" << decl.value().pretty() <<"\n";
-      }
       
       exprt precondition = aggregate_function_preconditions(decl);
 
