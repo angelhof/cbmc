@@ -776,6 +776,8 @@ void goto_convertt::do_function_call_symbol(
       typecast_exprt::conditional_cast(arguments[0], bool_typet()),
       function.source_location()));
 
+    // TODO: Find the comment part that we care about. Then append it to the assert comment
+    
     if(is_precondition)
     {
       t->source_location.set_property_class(ID_precondition);
