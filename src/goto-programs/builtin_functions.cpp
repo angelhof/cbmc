@@ -749,9 +749,11 @@ void goto_convertt::do_function_call_symbol(
       throw 0;
     }
   }
-  else if(identifier==CPROVER_PREFIX "assert" ||
+  else if(identifier==CPROVER_PREFIX "assert"
+          ||
           identifier==CPROVER_PREFIX "precondition" ||
-          identifier==CPROVER_PREFIX "postcondition")
+          identifier==CPROVER_PREFIX "postcondition"
+    )
   {
     if(arguments.size()!=2)
     {

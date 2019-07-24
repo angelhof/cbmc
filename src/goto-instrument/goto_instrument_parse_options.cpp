@@ -94,6 +94,7 @@ Author: Daniel Kroening, kroening@kroening.com
 #include "nondet_static.h"
 #include "nondet_volatile.h"
 #include "points_to.h"
+#include "pre_postconditions_to_contracts.h"
 #include "race_check.h"
 #include "reachability_slicer.h"
 #include "remove_function.h"
@@ -1083,6 +1084,12 @@ void goto_instrument_parse_optionst::instrument_goto_program()
     code_contracts(goto_model);
   }
 
+  if(cmdline.isset("pre-postconditions-to-contracts"))
+  {
+    log.status() << "Turning pre and postconditions to contracts" << messaget::eom;
+    pre_postconditions_to_contracts(goto_model);
+  }
+  
   // Question: I am not sure whether that is the correct place to add
   // this option. Or whether it should be in some other order with the
   // others.

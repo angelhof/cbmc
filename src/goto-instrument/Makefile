@@ -52,6 +52,7 @@ SRC = accelerate/accelerate.cpp \
       nondet_volatile.cpp \
       object_id.cpp \
       points_to.cpp \
+      pre_postconditions_to_contracts.cpp \
       race_check.cpp \
       reachability_slicer.cpp \
       remove_function.cpp \
