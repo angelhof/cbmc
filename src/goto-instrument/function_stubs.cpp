@@ -254,17 +254,11 @@ void function_stubst::operator()()
   // have stub_functions? Could something go wrong?
   stub_function(function_name, function_body, function_modifies);
 
-  // TODO: Find a way to not include any necessary header file in the
-  // stub. Maybe add the name of a header file as a second cmdline
-  // argument.
-
   // Delete all other functions and just keep the stub so that we can output it in C
   goto_functions.clear();
   goto_functions.update();
   goto_functions.function_map[function_name].copy_from(function_body);
   goto_functions.update();
-
-  // TODO: Output C properly and not by calling dump-c.
 }
 
 // This is copied from code_contracts
