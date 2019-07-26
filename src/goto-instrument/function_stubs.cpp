@@ -112,12 +112,18 @@ void function_stubst::stub_function(
                      symbol_table)
                      .symbol_expr();
 
+  replace_symbolt replace;
+
   if(type.return_type() != empty_typet())
   {
     // Declare the return variable and assign to it the return value
     // of the call
     goto_function.body.add(goto_programt::make_decl(r));
     call.lhs() = r;
+
+    // Replace the return_value with r
+    symbol_exprt ret_val(CPROVER_PREFIX "return_value", type.return_type());
+    replace.insert(ret_val, r);
   }
 
   // Add the parameters as arguments to the call
@@ -136,9 +142,13 @@ void function_stubst::stub_function(
 
   // Add the postcondition assumption
   if(ensures.is_not_nil())
-    goto_function.body.add(
-      goto_programt::make_assumption(ensures, ensures.source_location()));
-  // TODO: Add comment as is done in the loop code in code_contracts.cpp
+  {
+    exprt ensures_replaced = ensures;
+    replace(ensures_replaced);
+    goto_function.body.add(goto_programt::make_assumption(
+      ensures_replaced, ensures.source_location()));
+    // TODO: Add comment as is done in the loop code in code_contracts.cpp
+  }
 
   if(type.return_type() != empty_typet())
   {
