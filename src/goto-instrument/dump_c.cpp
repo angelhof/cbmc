@@ -1564,6 +1564,7 @@ void dump_c_type_header(
     use_all_headers,
     include_harness,
     new_ns,
+    nullopt,
     new_ansi_c_language,
     dump_c_configurationt::type_header_configuration);
   out << goto2c;

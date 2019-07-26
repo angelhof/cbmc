@@ -137,6 +137,7 @@ public:
     const bool use_all_headers,
     const bool include_harness,
     const namespacet &_ns,
+    const optionalt<irep_idt> _stub_name,
     language_factoryt factory)
     : dump_ct(
         _goto_functions,
@@ -144,6 +145,7 @@ public:
         use_all_headers,
         include_harness,
         _ns,
+        _stub_name,
         factory,
         dump_c_configurationt::default_configuration)
   {
