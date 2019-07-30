@@ -55,8 +55,6 @@ protected:
 
   unsigned temporary_counter;
 
-  std::unordered_set<irep_idt> summarized;
-
   void stub_function(
     const irep_idt &function_id,
     goto_functionst::goto_functiont &goto_function);
