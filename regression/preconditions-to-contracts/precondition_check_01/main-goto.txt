@@ -1,0 +1,123 @@
+Reading GOTO program from 'main-mod.gb'
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+__CPROVER__start /* __CPROVER__start */
+        // 47 no location
+        // Labels: __CPROVER_HIDE
+        SKIP
+        // 48 no location
+        __CPROVER_initialize();
+        // 49 file main.c line 24
+        return'=main();
+        // 50 file main.c line 24
+        OUTPUT("return'", return');
+        // 51 no location
+        END_FUNCTION
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+__CPROVER_initialize /* __CPROVER_initialize */
+        // 23 file main.c line 8 function min
+        IF NONDET(__CPROVER_bool) THEN GOTO 1
+        // 24 file main.c line 8 function min
+        signed int tmp_cc;
+        // 25 file main.c line 8 function min
+        signed int tmp_cc$0;
+        // 26 file main.c line 8 function min
+        signed int tmp_cc$1;
+        // 27 no location
+        ASSUME tmp_cc$0 >= 0 && tmp_cc$1 >= 0
+        // 28 file main.c line 8 function min
+        tmp_cc=min(tmp_cc$0, tmp_cc$1);
+        // 29 file main.c line 8 function min
+        ASSERT tmp_cc <= tmp_cc$0 && tmp_cc <= tmp_cc$1 && (tmp_cc == tmp_cc$0 || tmp_cc == tmp_cc$1)
+        // 30 file main.c line 8 function min
+        ASSUME FALSE
+        // 31 file <built-in-additions> line 20
+        // Labels: __CPROVER_HIDE
+     1: __CPROVER_alloca_object = NULL;
+        // 32 file <built-in-additions> line 14
+        __CPROVER_dead_object = NULL;
+        // 33 file <built-in-additions> line 13
+        __CPROVER_deallocated = NULL;
+        // 34 file <built-in-additions> line 17
+        __CPROVER_malloc_is_new_array = 0 != 0;
+        // 35 file <built-in-additions> line 15
+        __CPROVER_malloc_object = NULL;
+        // 36 file <built-in-additions> line 16
+        __CPROVER_malloc_size = 0ul;
+        // 37 file <built-in-additions> line 18
+        __CPROVER_memory_leak = NULL;
+        // 38 file <built-in-additions> line 8
+        __CPROVER_next_thread_id = (unsigned long int)0;
+        // 39 file <built-in-additions> line 11
+        __CPROVER_next_thread_key = (unsigned long int)0;
+        // 40 file <built-in-additions> line 33
+        __CPROVER_pipe_count = (unsigned int)0;
+        // 41 file <built-in-additions> line 24
+        __CPROVER_rounding_mode = 0;
+        // 42 file <built-in-additions> line 6
+        __CPROVER_thread_id = (unsigned long int)0;
+        // 43 file <built-in-additions> line 10
+        __CPROVER_thread_key_dtors = ARRAY_OF(((void (*)(void *))NULL));
+        // 44 file <built-in-additions> line 9
+        __CPROVER_thread_keys = ARRAY_OF(NULL);
+        // 45 file <built-in-additions> line 7
+        __CPROVER_threads_exited = ARRAY_OF(FALSE);
+        // 46 no location
+        END_FUNCTION
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+main /* main */
+        // 0 file main.c line 26 function main
+        signed int x;
+        // 1 file main.c line 26 function main
+        signed int y;
+        // 2 file main.c line 26 function main
+        signed int z;
+        // 3 file main.c line 27 function main
+        ASSUME x >= 0 && y >= 0
+        // 4 file main.c line 28 function main
+        ASSERT x >= 0 && y >= 0
+        // 5 file main.c line 28 function main
+        ASSUME z <= x && z <= y && (z == x || z == y)
+        // 6 file main.c line 29 function main
+        ASSERT !((signed long int)(signed long int)!(z <= x) != 0l) // assertion z <= x
+        // 7 file main.c line 30 function main
+        dead z;
+        // 8 file main.c line 30 function main
+        dead y;
+        // 9 file main.c line 30 function main
+        dead x;
+        // 10 file main.c line 30 function main
+        return NONDET(signed int);
+        // 11 file main.c line 30 function main
+        END_FUNCTION
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+min /* min */
+        // 12 file main.c line 12 function min
+        ASSERT a >= 0
+        // 13 file main.c line 13 function min
+        ASSERT b >= 0
+        // 14 file main.c line 14 function min
+        IF !(a <= b) THEN GOTO 1
+        // 15 file main.c line 16 function min
+        return a;
+        // 16 file main.c line 16 function min
+        GOTO 3
+        // 17 file main.c line 16 function min
+        GOTO 2
+        // 18 file main.c line 20 function min
+     1: return b;
+        // 19 file main.c line 20 function min
+        GOTO 3
+        // 20 no location
+     2: SKIP
+        // 21 file main.c line 22 function min
+        return NONDET(signed int);
+        // 22 file main.c line 22 function min
+     3: END_FUNCTION
+

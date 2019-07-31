@@ -1,0 +1,103 @@
+Reading GOTO program from 'main-mod.gb'
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+__CPROVER__start /* __CPROVER__start */
+        // 37 no location
+        // Labels: __CPROVER_HIDE
+        SKIP
+        // 38 no location
+        __CPROVER_initialize();
+        // 39 file main.c line 13
+        return'=main();
+        // 40 file main.c line 13
+        OUTPUT("return'", return');
+        // 41 no location
+        END_FUNCTION
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+__CPROVER_initialize /* __CPROVER_initialize */
+        // 14 file main.c line 7 function foo
+        IF NONDET(__CPROVER_bool) THEN GOTO 1
+        // 15 file main.c line 7 function foo
+        signed int tmp_cc;
+        // 16 file main.c line 7 function foo
+        signed int tmp_cc$0;
+        // 17 file main.c line 9 function foo
+        ASSUME tmp_cc$0 == 0
+        // 18 file main.c line 7 function foo
+        tmp_cc=foo(tmp_cc$0);
+        // 19 file main.c line 7 function foo
+        ASSERT tmp_cc == 1
+        // 20 file main.c line 7 function foo
+        ASSUME FALSE
+        // 21 file <built-in-additions> line 20
+        // Labels: __CPROVER_HIDE
+     1: __CPROVER_alloca_object = NULL;
+        // 22 file <built-in-additions> line 14
+        __CPROVER_dead_object = NULL;
+        // 23 file <built-in-additions> line 13
+        __CPROVER_deallocated = NULL;
+        // 24 file <built-in-additions> line 17
+        __CPROVER_malloc_is_new_array = 0 != 0;
+        // 25 file <built-in-additions> line 15
+        __CPROVER_malloc_object = NULL;
+        // 26 file <built-in-additions> line 16
+        __CPROVER_malloc_size = 0ul;
+        // 27 file <built-in-additions> line 18
+        __CPROVER_memory_leak = NULL;
+        // 28 file <built-in-additions> line 8
+        __CPROVER_next_thread_id = (unsigned long int)0;
+        // 29 file <built-in-additions> line 11
+        __CPROVER_next_thread_key = (unsigned long int)0;
+        // 30 file <built-in-additions> line 33
+        __CPROVER_pipe_count = (unsigned int)0;
+        // 31 file <built-in-additions> line 24
+        __CPROVER_rounding_mode = 0;
+        // 32 file <built-in-additions> line 6
+        __CPROVER_thread_id = (unsigned long int)0;
+        // 33 file <built-in-additions> line 10
+        __CPROVER_thread_key_dtors = ARRAY_OF(((void (*)(void *))NULL));
+        // 34 file <built-in-additions> line 9
+        __CPROVER_thread_keys = ARRAY_OF(NULL);
+        // 35 file <built-in-additions> line 7
+        __CPROVER_threads_exited = ARRAY_OF(FALSE);
+        // 36 no location
+        END_FUNCTION
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+foo /* foo */
+        // 10 file main.c line 9 function foo
+        ASSERT x == 0
+        // 11 file main.c line 10 function foo
+        return 1;
+        // 12 file main.c line 10 function foo
+        GOTO 1
+        // 13 file main.c line 11 function foo
+     1: END_FUNCTION
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+main /* main */
+        // 0 file main.c line 15 function main
+        signed int in;
+        // 1 file main.c line 16 function main
+        signed int x;
+        // 2 file main.c line 16 function main
+        ASSERT in == 0
+        // 3 file main.c line 16 function main
+        ASSUME x == 1
+        // 4 file main.c line 17 function main
+        ASSERT !((signed long int)(signed long int)!(x == 1) != 0l) // assertion x == 1
+        // 5 file main.c line 18 function main
+        return 0;
+        // 6 file main.c line 18 function main
+        dead x;
+        // 7 file main.c line 18 function main
+        dead in;
+        // 8 file main.c line 18 function main
+        GOTO 1
+        // 9 file main.c line 19 function main
+     1: END_FUNCTION
+

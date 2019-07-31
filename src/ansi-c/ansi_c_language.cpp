@@ -282,9 +282,7 @@ std::unordered_set<irep_idt> get_body_variable_names(code_blockt function_body) 
     if (can_cast_expr<code_declt>(*d_it)) {
       // std::cout << "Variable Declaration:\n";
       // std::cout << d_it->pretty() << "\n";
-
-      const code_declt variable_decl = to_code_decl(to_code(*d_it));
-      exprt::operandst declared_vars = variable_decl.op0().operands();
+      exprt::operandst declared_vars = d_it->op0().operands();
       
       // Keep the name of all declared variables in the function body
       for (exprt::operandst::iterator it = declared_vars.begin(); it != declared_vars.end(); ++it) {
@@ -406,9 +404,7 @@ exprt condition_conjunction(const exprt::operandst &nil_op)
   }
 }
 
-exprt aggregate_function_postconditions(ansi_c_declaratort function) {
-  code_blockt function_body = to_code_block(to_code(function.value()));
-  
+exprt aggregate_function_postconditions(code_blockt function_body) {
   // Gather the variable names that were declared in the function body
   std::unordered_set<irep_idt> body_variable_names = get_body_variable_names(function_body);
 
@@ -463,9 +459,8 @@ exprt aggregate_function_postconditions(ansi_c_declaratort function) {
 // preconditions and add its code here.
 //
 // QUESTION: Should I make that static or define it somewhere else?
-exprt aggregate_function_preconditions(ansi_c_declaratort function) {
-  code_blockt function_body = to_code_block(to_code(function.value()));
-  
+exprt aggregate_function_preconditions(code_blockt function_body) {
+
   exprt::operandst preconditions = filter_pre_post_conditions("__CPROVER_precondition", function_body);
   
   // WARNING: In order for it to make sense to return the conjunction
@@ -505,36 +500,40 @@ bool ansi_c_languaget::preconditions_to_contracts() {
     if (!it->declarators().empty()) {
       ansi_c_declaratort decl = it->declarator();
       std::cout << "  " << decl.get_name() << "\n";
-      
-      exprt precondition = aggregate_function_preconditions(decl);
 
-      // std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
-      if (precondition.is_not_nil()) {
-        std::cout << "  -- Successfully turned precondition into contract\n";
-        // std::cout << "Previous declaration\n" << it->pretty() << "\n";
-        // Question: Is there any better way of passing a pointer to that declaration?
-        extend_contract(ID_C_spec_requires, precondition, &(*it));
-        // std::cout << "New declaration\n" << it->pretty() << "\n";
-      }
+      if(can_cast_expr<code_blockt>(decl.value()))
+      {
+        code_blockt function_body = to_code_block(to_code(decl.value()));
+        exprt precondition = aggregate_function_preconditions(function_body);
 
-      exprt postcondition = aggregate_function_postconditions(decl);
-      // std::cout << "Folded postcondition:\n" << postcondition.pretty() << "\n";
-      
-      // WARNING: This will always succeed if there are at least two
-      // return points in the function even if they have no
-      // postconditions
-      if (postcondition.is_not_nil()) {
-        std::cout << "  -- Successfully turned postcondition into contract\n";
-        // // std::cout << "Previous declaration\n" << it->pretty() << "\n";
-        // // Question: Is there any better way of passing a pointer to that declaration?
+        // std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
+        if (precondition.is_not_nil()) {
+          std::cout << "  -- Successfully turned precondition into contract\n";
+          // std::cout << "Previous declaration\n" << it->pretty() << "\n";
+          // Question: Is there any better way of passing a pointer to that declaration?
+          extend_contract(ID_C_spec_requires, precondition, &(*it));
+          // std::cout << "New declaration\n" << it->pretty() << "\n";
+        }
         
-        extend_contract(ID_C_spec_ensures, postcondition, &(*it));
+        exprt postcondition = aggregate_function_postconditions(function_body);
+        // std::cout << "Folded postcondition:\n" << postcondition.pretty() << "\n";
         
-        // it->set(ID_C_spec_ensures, postcondition);
-        // if(decl.get_name() == "s_sift_down" || decl.get_name() == "s_sift_up") {
-        //   std::cout << "New declaration\n" << it->pretty() << "\n";
-        // }
-        // std::cout << "New declaration\n" << it->pretty() << "\n";
+        // WARNING: This will always succeed if there are at least two
+        // return points in the function even if they have no
+        // postconditions
+        if (postcondition.is_not_nil()) {
+          std::cout << "  -- Successfully turned postcondition into contract\n";
+          // // std::cout << "Previous declaration\n" << it->pretty() << "\n";
+          // // Question: Is there any better way of passing a pointer to that declaration?
+          
+          extend_contract(ID_C_spec_ensures, postcondition, &(*it));
+          
+          // it->set(ID_C_spec_ensures, postcondition);
+          // if(decl.get_name() == "s_sift_down" || decl.get_name() == "s_sift_up") {
+          //   std::cout << "New declaration\n" << it->pretty() << "\n";
+          // }
+          // std::cout << "New declaration\n" << it->pretty() << "\n";
+        }
       }
     }
   }
