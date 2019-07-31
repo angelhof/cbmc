@@ -161,7 +161,8 @@ void function_stubst::stub_function(
   log.debug() << "Function body after adding the assumption: "
               << "\n";
   goto_function.body.output(ns, function_id, log.debug());
-
+  log.debug() << messaget::eom;
+  
   // Question: do I need to call some update or something after I do the changes?
 }
 
@@ -174,12 +175,13 @@ bool function_stubst::operator()()
   if(requested_function_body == goto_functions.function_map.end())
   {
     log.error() << "The body of function: " << function_name
-                << "doesn't exist in the goto_model\n";
+                << " doesn't exist in the goto_model\n"
+                << messaget::eom;
     return true;
   }
   function_body.copy_from(requested_function_body->second);
 
-  log.debug() << "Function: " << function_name << "\n";
+  log.debug() << "Function: " << function_name << messaget::eom;
 
   // Add a declaration of the impl function, that will be called in the function body
   //
@@ -197,7 +199,8 @@ bool function_stubst::operator()()
   if(!symbol_table.has_symbol(function_name))
   {
     log.error() << "Function: " << function_name
-                << "doesn't exist in the symbol table\n";
+                << " doesn't exist in the symbol table"
+                << messaget::eom;
     return true;
   }
   symbolt function_symbol = symbol_table.lookup_ref(function_name);
@@ -218,7 +221,8 @@ bool function_stubst::operator()()
   {
     log.error() << "The internal stub implementation name: "
                 << function_symbol.name
-                << "already exists in the symbol table\n";
+                << " already exists in the symbol table"
+                << messaget::eom;
     return true;
   }
   symbol_table.add(function_symbol);

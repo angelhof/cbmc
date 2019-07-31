@@ -564,6 +564,10 @@ bool ansi_c_languaget::preconditions_to_contracts() {
       
       exprt precondition = aggregate_function_preconditions(decl);
 
+      if (decl.get_name() == "aws_array_list_pop_back")
+      {
+        std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
+      }
       // std::cout << "Folded precondition:\n" << precondition.pretty() << "\n";
       if (precondition.is_not_nil()) {
         std::cout << "  -- Successfully turned precondition into contract\n";
@@ -575,6 +579,11 @@ bool ansi_c_languaget::preconditions_to_contracts() {
 
       exprt postcondition = aggregate_function_postconditions(decl);
       // std::cout << "Folded postcondition:\n" << postcondition.pretty() << "\n";
+
+      if (decl.get_name() == "aws_array_list_pop_back")
+      {
+        std::cout << "Folded postcondition:\n" << postcondition.pretty() << "\n";
+      }
       
       // WARNING: This will always succeed if there are at least two
       // return points in the function even if they have no
