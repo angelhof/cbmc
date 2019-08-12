@@ -67,6 +67,8 @@ public:
     return typecheck(symbol_table, module, true);
   }
 
+  bool preconditions_to_contracts() override;
+
   void show_parse(std::ostream &out) override;
 
   ~ansi_c_languaget() override;

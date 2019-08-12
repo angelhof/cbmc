@@ -639,9 +639,12 @@ int goto_instrument_parse_optionst::doit()
       return CPROVER_EXIT_SUCCESS;
     }
 
-    if(cmdline.isset("dump-c") || cmdline.isset("dump-cpp"))
+    if(
+      cmdline.isset("dump-c") || cmdline.isset("dump-cpp") ||
+      cmdline.isset("dump-c-type-header"))
     {
       const bool is_cpp=cmdline.isset("dump-cpp");
+      const bool is_header = cmdline.isset("dump-c-type-header");
       const bool h_libc=!cmdline.isset("no-system-headers");
       const bool h_all=cmdline.isset("use-all-headers");
       const bool harness=cmdline.isset("harness");
@@ -660,25 +663,45 @@ int goto_instrument_parse_optionst::doit()
         #endif
         if(!out)
         {
-          log.error() << "failed to write to `" << cmdline.args[1] << "'";
+          log.error() << "failed to write to '" << cmdline.args[1] << "'";
           return CPROVER_EXIT_CONVERSION_FAILED;
         }
-        (is_cpp ? dump_cpp : dump_c)(
-          goto_model.goto_functions,
-          h_libc,
-          h_all,
-          harness,
-          ns,
-          out);
+        if(is_header)
+        {
+          dump_c_type_header(
+            goto_model.goto_functions,
+            h_libc,
+            h_all,
+            harness,
+            ns,
+            cmdline.get_value("dump-c-type-header"),
+            out);
+        }
+        else
+        {
+          (is_cpp ? dump_cpp : dump_c)(
+            goto_model.goto_functions, h_libc, h_all, harness, ns, out);
+        }
       }
       else
-        (is_cpp ? dump_cpp : dump_c)(
-          goto_model.goto_functions,
-          h_libc,
-          h_all,
-          harness,
-          ns,
-          std::cout);
+      {
+        if(is_header)
+        {
+          dump_c_type_header(
+            goto_model.goto_functions,
+            h_libc,
+            h_all,
+            harness,
+            ns,
+            cmdline.get_value("dump-c-type-header"),
+            std::cout);
+        }
+        else
+        {
+          (is_cpp ? dump_cpp : dump_c)(
+            goto_model.goto_functions, h_libc, h_all, harness, ns, std::cout);
+        }
+      }
 
       return CPROVER_EXIT_SUCCESS;
     }
@@ -817,7 +840,7 @@ int goto_instrument_parse_optionst::doit()
     // write new binary?
     if(cmdline.args.size()==2)
     {
-      log.status() << "Writing GOTO program to `" << cmdline.args[1] << "'"
+      log.status() << "Writing GOTO program to '" << cmdline.args[1] << "'"
                    << messaget::eom;
 
       if(write_goto_binary(cmdline.args[1], goto_model, ui_message_handler))
@@ -904,7 +927,7 @@ void goto_instrument_parse_optionst::do_remove_returns()
 
 void goto_instrument_parse_optionst::get_goto_program()
 {
-  log.status() << "Reading GOTO program from `" << cmdline.args[0] << "'"
+  log.status() << "Reading GOTO program from '" << cmdline.args[0] << "'"
                << messaget::eom;
 
   config.set(cmdline);
@@ -1092,7 +1115,7 @@ void goto_instrument_parse_optionst::instrument_goto_program()
 
     do_indirect_call_and_rtti_removal();
 
-    log.status() << "Inlining calls of function `" << function << "'"
+    log.status() << "Inlining calls of function '" << function << "'"
                  << messaget::eom;
 
     if(!cmdline.isset("log"))
@@ -1205,10 +1228,19 @@ void goto_instrument_parse_optionst::instrument_goto_program()
 
   // ignore default/user-specified initialization of variables with static
   // lifetime
-  if(cmdline.isset("nondet-static"))
+  if(cmdline.isset("nondet-static-exclude"))
   {
-    log.status() << "Adding nondeterministic initialization of static/global "
-                    "variables"
+    log.status() << "Adding nondeterministic initialization "
+                    "of static/global variables except for "
+                    "the specified ones."
+                 << messaget::eom;
+
+    nondet_static(goto_model, cmdline.get_values("nondet-static-exclude"));
+  }
+  else if(cmdline.isset("nondet-static"))
+  {
+    log.status() << "Adding nondeterministic initialization "
+                    "of static/global variables"
                  << messaget::eom;
     nondet_static(goto_model);
   }
@@ -1310,7 +1342,7 @@ void goto_instrument_parse_optionst::instrument_goto_program()
       }
       else
       {
-        log.error() << "Unknown weak memory model `" << mm << "'"
+        log.error() << "Unknown weak memory model '" << mm << "'"
                     << messaget::eom;
         model=Unknown;
       }
@@ -1555,6 +1587,7 @@ void goto_instrument_parse_optionst::help()
     " --document-properties-html   generate HTML property documentation\n"
     " --document-properties-latex  generate Latex property documentation\n"
     " --dump-c                     generate C source\n"
+    " --dump-c-type-header m       generate a C header for types local in m\n"
     " --dump-cpp                   generate C++ source\n"
     " --dot                        generate CFG graph in DOT format\n"
     " --interpreter                do concrete execution\n"
@@ -1607,6 +1640,8 @@ void goto_instrument_parse_optionst::help()
     " --isr <function>             instruments an interrupt service routine\n"
     " --mmio                       instruments memory-mapped I/O\n"
     " --nondet-static              add nondeterministic initialization of variables with static lifetime\n" // NOLINT(*)
+    " --nondet-static-exclude e    same as nondet-static except for the variable e\n" //NOLINT(*)
+    "                              (use multiple times if required)\n"
     " --check-invariant function   instruments invariant checking function\n"
     " --remove-pointers            converts pointer arithmetic to base+offset expressions\n" // NOLINT(*)
     " --splice-call caller,callee  prepends a call to callee in the body of caller\n"  // NOLINT(*)

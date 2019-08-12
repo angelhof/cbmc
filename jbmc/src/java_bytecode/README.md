@@ -76,11 +76,7 @@ types so we keep a stack of types for each parameter.
 
 We use the map in \ref select_pointer_typet::specialize_generics to
 retrieve the concrete type of generic parameters such as `MyGeneric::T` and of
-arrays of generic parameters such as `MyGeneric::T[]`. Special attention
-is paid to breaking infinite recursion when searching the map, e.g.,
-`MyGeneric::T` being specialized with `MyGeneric::U` and vice versa, for an
-example of such a recursion see
-\ref select_pointer_typet::get_recursively_instantiated_type. More complicated
+arrays of generic parameters such as `MyGeneric::T[]`. More complicated
 generic types such as `MyGeneric<T>` are specialized indirectly within \ref
 java_object_factoryt. Their concrete types are already stored in the map and are
 retrieved when needed, e.g., to initialize their fields.
@@ -876,6 +872,11 @@ Setting the member of symex_dynamic::dynamic_object1, referenceField. Note that 
 
 Finally, the actual assignment to globalReferenceTypeReferenceField is done by reference to the object we built symex_dynamic::dynamic_object1
 - \ref symbol_exprt `java::ObjectReference.globalReferenceTypeReferenceField` = \ref constant_exprt with \ref address_of_exprt pointing to `symex_dynamic::dynamic_object1`
+
+\subsection java-trace-validation Java trace validation
+
+Using the flag "--validate-trace" will call the function \ref check_trace_assumptions,
+which will throw an error when these assumptions are not met.
 
 \subsection java-trace-array-assignments Array assignments
 

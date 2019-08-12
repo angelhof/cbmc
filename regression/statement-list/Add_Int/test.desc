@@ -3,9 +3,10 @@ main.awl
 --show-parse-tree
 ^EXIT=0$
 ^SIGNAL=0$
-^Name: "Add_Int"$
+^Name: Add_Int$
 ^Version: 0[.]1$
-^  \* type: statement_list_int$
+^  \* type: signedbv$
+^      \* width: 16$
 ^  \* identifier: "I0[.]0"$
 ^  \* identifier: "I0[.]1"$
 ^  \* identifier: "O0[.]0"$

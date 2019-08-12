@@ -220,7 +220,8 @@ void smt2_convt::define_object_size(
       numeric_cast<mp_integer>(size_expr.value_or(nil_exprt()));
 
     if(
-      o.id() != ID_symbol || !size_expr.has_value() || !object_size.has_value())
+      (o.id() != ID_symbol && o.id() != ID_string_constant) ||
+      !size_expr.has_value() || !object_size.has_value())
     {
       ++number;
       continue;
@@ -1865,7 +1866,7 @@ void smt2_convt::convert_expr(const exprt &expr)
   else if(expr.id()==ID_constraint_select_one)
   {
     UNEXPECTEDCASE(
-      "smt2_convt::convert_expr: `"+expr.id_string()+
+      "smt2_convt::convert_expr: '" + expr.id_string() +
       "' is not yet supported");
   }
   else if(expr.id() == ID_bswap)

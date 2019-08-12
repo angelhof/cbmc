@@ -112,7 +112,7 @@ void interpretert::show_state()
 
   if(pc==function->second.body.instructions.end())
   {
-    status() << "End of function `" << function->first << "'\n";
+    status() << "End of function '" << function->first << "'\n";
   }
   else
     function->second.body.output_instruction(
@@ -408,7 +408,7 @@ void interpretert::execute_other()
       assign(address, rhs);
     }
   }
-  else if(statement==ID_output)
+  else if(can_cast_expr<code_outputt>(pc->get_other()))
   {
     return;
   }

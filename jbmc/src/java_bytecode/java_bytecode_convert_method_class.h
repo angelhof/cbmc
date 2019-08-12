@@ -183,11 +183,7 @@ protected:
     NO_CAST
   };
 
-  exprt variable(
-    const exprt &arg,
-    char type_char,
-    size_t address,
-    variable_cast_argumentt do_cast);
+  exprt variable(const exprt &arg, char type_char, size_t address);
 
   // temporary variables
   std::list<symbol_exprt> tmp_vars;
@@ -366,8 +362,19 @@ protected:
     const method_offsett address,
     const source_locationt &location);
 
-  exprt
-  convert_aload(const irep_idt &statement, const exprt::operandst &op) const;
+  static exprt
+  convert_aload(const irep_idt &statement, const exprt::operandst &op);
+
+  /// Load reference from local variable.
+  /// \p index must be an unsigned byte and an index in the local variable array
+  /// of the current frame. The type of the local variable at index \p index
+  /// must:
+  ///   - be a reference type if \p type_char is 'a'
+  ///   - be either boolean, byte, short, int, or char if \p type_char is 'i', a
+  ///     typecast to `int` is added if needed
+  ///   - match \c java_type_of_char(type_char) otherwise
+  /// \return the local variable at \p index
+  exprt convert_load(const exprt &index, char type_char, size_t address);
 
   code_blockt convert_ret(
     const std::vector<method_offsett> &jsr_ret_targets,
@@ -504,5 +511,7 @@ protected:
     const source_locationt &location);
 
   codet convert_pop(const irep_idt &statement, const exprt::operandst &op);
+
+  friend class java_bytecode_convert_method_unit_testt;
 };
 #endif

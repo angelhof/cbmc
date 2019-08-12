@@ -34,6 +34,7 @@ SRC = allocate_objects.cpp \
       irep_hash_container.cpp \
       irep_ids.cpp \
       irep_serialization.cpp \
+      interval_constraint.cpp \
       invariant_utils.cpp \
       json.cpp \
       json_irep.cpp \
@@ -55,6 +56,7 @@ SRC = allocate_objects.cpp \
       pointer_offset_size.cpp \
       pointer_offset_sum.cpp \
       pointer_predicates.cpp \
+      prefix_filter.cpp \
       rational.cpp \
       rational_tools.cpp \
       ref_expr_set.cpp \
@@ -69,6 +71,7 @@ SRC = allocate_objects.cpp \
       simplify_expr_array.cpp \
       simplify_expr_boolean.cpp \
       simplify_expr_floatbv.cpp \
+      simplify_expr_if.cpp \
       simplify_expr_int.cpp \
       simplify_expr_pointer.cpp \
       simplify_expr_struct.cpp \

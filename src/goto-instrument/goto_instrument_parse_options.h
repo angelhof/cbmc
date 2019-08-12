@@ -39,6 +39,7 @@ Author: Daniel Kroening, kroening@kroening.com
   "(all)" \
   "(document-claims-latex)(document-claims-html)" \
   "(document-properties-latex)(document-properties-html)" \
+  "(dump-c-type-header):" \
   "(dump-c)(dump-cpp)(no-system-headers)(use-all-headers)(dot)(xml)" \
   "(harness)" \
   OPT_GOTO_CHECK \
@@ -62,6 +63,7 @@ Author: Daniel Kroening, kroening@kroening.com
   "(no-po-rendering)(render-cluster-file)(render-cluster-function)" \
   "(nondet-volatile)(isr):" \
   "(stack-depth):(nondet-static)" \
+  "(nondet-static-exclude):" \
   "(function-enter):(function-exit):(branch):" \
   OPT_SHOW_GOTO_FUNCTIONS \
   OPT_SHOW_PROPERTIES \

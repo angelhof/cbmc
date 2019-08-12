@@ -1258,7 +1258,7 @@ void value_set_fit::assign_rec(
     assign_rec(lhs.op0(), values_rhs, suffix, ns, recursion_set);
   }
   else
-    throw "assign NYI: `"+lhs.id_string()+"'";
+    throw "assign NYI: '" + lhs.id_string() + "'";
 }
 
 void value_set_fit::do_function_call(
@@ -1400,7 +1400,7 @@ void value_set_fit::apply_code(const codet &code, const namespacet &ns)
           statement==ID_array_set)
   {
   }
-  else if(statement==ID_input || statement==ID_output)
+  else if(can_cast_expr<code_inputt>(code) || can_cast_expr<code_outputt>(code))
   {
     // doesn't do anything
   }

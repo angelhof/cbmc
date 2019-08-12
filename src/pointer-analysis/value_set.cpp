@@ -642,8 +642,11 @@ void value_sett::get_value_set_rec(
     else
       insert(dest, exprt(ID_unknown, original_type));
   }
-  else if(expr.id()==ID_plus ||
-          expr.id()==ID_minus)
+  else if(
+    expr.id() == ID_plus || expr.id() == ID_minus || expr.id() == ID_bitor ||
+    expr.id() == ID_bitand || expr.id() == ID_bitxor ||
+    expr.id() == ID_bitnand || expr.id() == ID_bitnor ||
+    expr.id() == ID_bitxnor)
   {
     if(expr.operands().size()<2)
       throw expr.id_string()+" expected to have at least two operands";
@@ -653,8 +656,9 @@ void value_sett::get_value_set_rec(
 
     // special case for pointer+integer
 
-    if(expr.operands().size()==2 &&
-       expr_type.id()==ID_pointer)
+    if(
+      expr.operands().size() == 2 && expr_type.id() == ID_pointer &&
+      (expr.id() == ID_plus || expr.id() == ID_minus))
     {
       exprt ptr_operand;
 
@@ -1466,7 +1470,7 @@ void value_sett::assign_rec(
     // which we don't track
   }
   else
-    throw "assign NYI: `"+lhs.id_string()+"'";
+    throw "assign NYI: '" + lhs.id_string() + "'";
 }
 
 void value_sett::do_function_call(
@@ -1634,7 +1638,7 @@ void value_sett::apply_code_rec(
   else if(statement==ID_fence)
   {
   }
-  else if(statement==ID_input || statement==ID_output)
+  else if(can_cast_expr<code_inputt>(code) || can_cast_expr<code_outputt>(code))
   {
     // doesn't do anything
   }

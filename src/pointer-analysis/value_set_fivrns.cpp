@@ -1037,7 +1037,7 @@ void value_set_fivrnst::assign_rec(
     assign_rec(lhs.op0(), values_rhs, suffix, ns, true);
   }
   else
-    throw "assign NYI: `"+lhs.id_string()+"'";
+    throw "assign NYI: '" + lhs.id_string() + "'";
 }
 
 void value_set_fivrnst::do_function_call(
@@ -1192,7 +1192,7 @@ void value_set_fivrnst::apply_code(const codet &code, const namespacet &ns)
       assign(lhs, code_return.return_value(), ns);
     }
   }
-  else if(statement==ID_input || statement==ID_output)
+  else if(can_cast_expr<code_inputt>(code) || can_cast_expr<code_outputt>(code))
   {
     // doesn't do anything
   }

@@ -3,9 +3,10 @@ main.awl
 --show-parse-tree
 ^EXIT=0$
 ^SIGNAL=0$
-^Name: "Mul_DInt"$
+^Name: Mul_DInt$
 ^Version: 0[.]1$
-^  \* type: statement_list_dint$
+^  \* type: signedbv$
+^      \* width: 32$
 ^  \* identifier: "I0[.]0"$
 ^  \* identifier: "I0[.]1"$
 ^  \* identifier: "O0[.]0"$

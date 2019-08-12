@@ -60,11 +60,15 @@ void goto_symext::apply_goto_condition(
   // Could use not_exprt + simplify, but let's avoid paying that cost on quite
   // a hot path:
   if(new_guard.id() == ID_not)
-    jump_not_taken_state.apply_condition(new_guard.op0(), current_state, ns);
+    jump_not_taken_state.apply_condition(
+      to_not_expr(new_guard).op(), current_state, ns);
   else if(new_guard.id() == ID_notequal)
   {
+    auto &not_equal_expr = to_notequal_expr(new_guard);
     jump_not_taken_state.apply_condition(
-      equal_exprt(new_guard.op0(), new_guard.op1()), current_state, ns);
+      equal_exprt(not_equal_expr.lhs(), not_equal_expr.rhs()),
+      current_state,
+      ns);
   }
 }
 
@@ -89,9 +93,10 @@ static optionalt<renamedt<exprt, L2>> try_evaluate_pointer_comparison(
 {
   const constant_exprt *constant_expr =
     expr_try_dynamic_cast<constant_exprt>(other_operand);
+  const exprt other_without_typecast = skip_typecast(other_operand);
 
   if(
-    skip_typecast(other_operand).id() != ID_address_of &&
+    other_without_typecast.id() != ID_address_of &&
     (!constant_expr || constant_expr->get_value() != ID_NULL))
   {
     return {};
@@ -113,7 +118,8 @@ static optionalt<renamedt<exprt, L2>> try_evaluate_pointer_comparison(
       value_set_element.id() == ID_unknown ||
       value_set_element.id() == ID_invalid ||
       is_failed_symbol(
-        to_object_descriptor_expr(value_set_element).root_object()))
+        to_object_descriptor_expr(value_set_element).root_object()) ||
+      to_object_descriptor_expr(value_set_element).offset().id() == ID_unknown)
     {
       // We can't conclude anything about the value-set
       return {};
@@ -131,7 +137,7 @@ static optionalt<renamedt<exprt, L2>> try_evaluate_pointer_comparison(
         value_set_dereferencet::build_reference_to(
           value_set_element, symbol_expr, ns);
 
-      if(value.pointer == other_operand)
+      if(skip_typecast(value.pointer) == other_without_typecast)
       {
         constant_found = true;
         // We can't break because we have to make sure we find any instances of
@@ -178,10 +184,10 @@ static optionalt<renamedt<exprt, L2>> try_evaluate_pointer_comparison(
   if(expr.id() != ID_equal && expr.id() != ID_notequal)
     return {};
 
-  if(!can_cast_type<pointer_typet>(expr.op0().type()))
+  if(!can_cast_type<pointer_typet>(to_binary_expr(expr).op0().type()))
     return {};
 
-  exprt lhs = expr.op0(), rhs = expr.op1();
+  exprt lhs = to_binary_expr(expr).op0(), rhs = to_binary_expr(expr).op1();
   if(can_cast_expr<symbol_exprt>(rhs))
     std::swap(lhs, rhs);
 

@@ -41,15 +41,14 @@ void goto_convertt::do_prob_uniform(
   if(arguments.size()!=2)
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier
-            << "' expected to have two arguments" << eom;
+    error() << "'" << identifier << "' expected to have two arguments" << eom;
     throw 0;
   }
 
   if(lhs.is_nil())
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier << "' expected to have LHS" << eom;
+    error() << "'" << identifier << "' expected to have LHS" << eom;
     throw 0;
   }
 
@@ -60,7 +59,7 @@ void goto_convertt::do_prob_uniform(
      lhs.type().id()!=ID_signedbv)
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier << "' expected other type" << eom;
+    error() << "'" << identifier << "' expected other type" << eom;
     throw 0;
   }
 
@@ -68,7 +67,7 @@ void goto_convertt::do_prob_uniform(
      arguments[1].type().id()!=lhs.type().id())
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier
+    error() << "'" << identifier
             << "' expected operands to be of same type as LHS" << eom;
     throw 0;
   }
@@ -77,7 +76,7 @@ void goto_convertt::do_prob_uniform(
      !arguments[1].is_constant())
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier
+    error() << "'" << identifier
             << "' expected operands to be constant literals" << eom;
     throw 0;
   }
@@ -120,15 +119,14 @@ void goto_convertt::do_prob_coin(
   if(arguments.size()!=2)
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier << "' expected to have two arguments"
-            << eom;
+    error() << "'" << identifier << "' expected to have two arguments" << eom;
     throw 0;
   }
 
   if(lhs.is_nil())
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier << "' expected to have LHS" << eom;
+    error() << "'" << identifier << "' expected to have LHS" << eom;
     throw 0;
   }
 
@@ -137,7 +135,7 @@ void goto_convertt::do_prob_coin(
   if(lhs.type()!=bool_typet())
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier << "' expected bool" << eom;
+    error() << "'" << identifier << "' expected bool" << eom;
     throw 0;
   }
 
@@ -145,7 +143,7 @@ void goto_convertt::do_prob_coin(
      arguments[0].id()!=ID_constant)
   {
     error().source_location=function.find_source_location();
-    error() << "`" << identifier << "' expected first operand to be "
+    error() << "'" << identifier << "' expected first operand to be "
             << "a constant literal of type unsigned long" << eom;
     throw 0;
   }
@@ -155,7 +153,7 @@ void goto_convertt::do_prob_coin(
     arguments[1].id() != ID_constant)
   {
     error().source_location = function.find_source_location();
-    error() << "`" << identifier << "' expected second operand to be "
+    error() << "'" << identifier << "' expected second operand to be "
             << "a constant literal of type unsigned long" << eom;
     throw 0;
   }
@@ -316,10 +314,6 @@ void goto_convertt::do_input(
   const exprt::operandst &arguments,
   goto_programt &dest)
 {
-  codet input_code(ID_input);
-  input_code.operands()=arguments;
-  input_code.add_source_location()=function.source_location();
-
   if(arguments.size()<2)
   {
     error().source_location=function.find_source_location();
@@ -327,7 +321,7 @@ void goto_convertt::do_input(
     throw 0;
   }
 
-  copy(input_code, OTHER, dest);
+  copy(code_inputt{arguments, function.source_location()}, OTHER, dest);
 }
 
 void goto_convertt::do_output(
@@ -335,10 +329,6 @@ void goto_convertt::do_output(
   const exprt::operandst &arguments,
   goto_programt &dest)
 {
-  codet output_code(ID_output);
-  output_code.operands()=arguments;
-  output_code.add_source_location()=function.source_location();
-
   if(arguments.size()<2)
   {
     error().source_location=function.find_source_location();
@@ -346,7 +336,7 @@ void goto_convertt::do_output(
     throw 0;
   }
 
-  copy(output_code, OTHER, dest);
+  copy(code_outputt{arguments, function.source_location()}, OTHER, dest);
 }
 
 void goto_convertt::do_atomic_begin(
@@ -638,15 +628,14 @@ void goto_convertt::do_function_call_symbol(
   if(ns.lookup(identifier, symbol))
   {
     error().source_location=function.find_source_location();
-    error() << "error: function `" << identifier << "' not found"
-            << eom;
+    error() << "error: function '" << identifier << "' not found" << eom;
     throw 0;
   }
 
   if(symbol->type.id()!=ID_code)
   {
     error().source_location=function.find_source_location();
-    error() << "error: function `" << identifier
+    error() << "error: function '" << identifier
             << "' type mismatch: expected code" << eom;
     throw 0;
   }
@@ -673,8 +662,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=1)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have one argument"
-              << eom;
+      error() << "'" << identifier << "' expected to have one argument" << eom;
       throw 0;
     }
 
@@ -697,8 +685,7 @@ void goto_convertt::do_function_call_symbol(
     if(!arguments.empty())
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have no arguments"
-              << eom;
+      error() << "'" << identifier << "' expected to have no arguments" << eom;
       throw 0;
     }
 
@@ -728,8 +715,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=1)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have one argument"
-              << eom;
+      error() << "'" << identifier << "' expected to have one argument" << eom;
       throw 0;
     }
 
@@ -755,8 +741,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=2)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have two arguments"
-              << eom;
+      error() << "'" << identifier << "' expected to have two arguments" << eom;
       throw 0;
     }
 
@@ -797,8 +782,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=1)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have one argument"
-              << eom;
+      error() << "'" << identifier << "' expected to have one argument" << eom;
       throw 0;
     }
 
@@ -952,7 +936,7 @@ void goto_convertt::do_function_call_symbol(
        arguments.size()!=3)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have four arguments"
+      error() << "'" << identifier << "' expected to have four arguments"
               << eom;
       throw 0;
     }
@@ -993,7 +977,7 @@ void goto_convertt::do_function_call_symbol(
     else
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have four arguments"
+      error() << "'" << identifier << "' expected to have four arguments"
               << eom;
       throw 0;
     }
@@ -1014,7 +998,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=4)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have four arguments"
+      error() << "'" << identifier << "' expected to have four arguments"
               << eom;
       throw 0;
     }
@@ -1045,8 +1029,8 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.empty())
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier
-              << "' expected to have at least one argument" << eom;
+      error() << "'" << identifier << "' expected to have at least one argument"
+              << eom;
       throw 0;
     }
 
@@ -1076,8 +1060,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=1)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have one argument"
-              << eom;
+      error() << "'" << identifier << "' expected to have one argument" << eom;
       throw 0;
     }
 
@@ -1114,8 +1097,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=2)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have two arguments"
-              << eom;
+      error() << "'" << identifier << "' expected to have two arguments" << eom;
       throw 0;
     }
 
@@ -1139,8 +1121,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=2)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have two arguments"
-              << eom;
+      error() << "'" << identifier << "' expected to have two arguments" << eom;
       throw 0;
     }
 
@@ -1175,8 +1156,7 @@ void goto_convertt::do_function_call_symbol(
     if(arguments.size()!=1)
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier << "' expected to have one argument"
-              << eom;
+      error() << "'" << identifier << "' expected to have one argument" << eom;
       throw 0;
     }
 
@@ -1215,9 +1195,8 @@ void goto_convertt::do_function_call_symbol(
         arguments[1].type()!=float_type()))
     {
       error().source_location=function.find_source_location();
-      error() << "`" << identifier
-              << "' expected to have two float/double arguments"
-              << eom;
+      error() << "'" << identifier
+              << "' expected to have two float/double arguments" << eom;
       throw 0;
     }
 

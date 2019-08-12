@@ -14,6 +14,7 @@ SRC += java_bytecode/ci_lazy_methods/lazy_load_lambdas.cpp \
        java_bytecode/goto-programs/class_hierarchy_output.cpp \
        java_bytecode/goto-programs/remove_virtual_functions_without_fallback.cpp \
        java_bytecode/inherited_static_fields/inherited_static_fields.cpp \
+       java_bytecode/java_bytecode_convert_class/add_java_array_types.cpp \
        java_bytecode/java_bytecode_convert_class/convert_abstract_class.cpp \
        java_bytecode/java_bytecode_convert_class/convert_java_annotations.cpp \
        java_bytecode/java_bytecode_convert_method/convert_initalizers.cpp \
@@ -49,6 +50,7 @@ SRC += java_bytecode/ci_lazy_methods/lazy_load_lambdas.cpp \
        java_bytecode/java_replace_nondet/replace_nondet.cpp \
        java_bytecode/java_static_initializers/java_static_initializers.cpp \
        java_bytecode/java_string_library_preprocess/convert_exprt_to_string_exprt.cpp \
+       java_bytecode/java_trace_validation/java_trace_validation.cpp \
        java_bytecode/java_types/erase_type_arguments.cpp \
        java_bytecode/java_types/generic_type_index.cpp \
        java_bytecode/java_types/java_generic_symbol_type.cpp \

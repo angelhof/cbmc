@@ -9,10 +9,13 @@ Author: Daniel Kroening, kroening@kroening.com
 #include "ansi_c_language.h"
 
 #include <cstring>
-#include <sstream>
 #include <fstream>
+#include <iostream>
+#include <sstream>
 
 #include <util/config.h>
+#include <util/expr_iterator.h>
+#include <util/expr_util.h>
 #include <util/get_base_name.h>
 
 #include <linking/linking.h>
@@ -133,6 +136,154 @@ bool ansi_c_languaget::generate_support_functions(
   // This creates __CPROVER_start and __CPROVER_initialize:
   return ansi_c_entry_point(
     symbol_table, get_message_handler(), object_factory_params);
+}
+
+// This returns true if the expression [expr] is a call to the
+// function with name [function_name]. Note that this doesn't handle
+// function pointers.
+bool is_call_to_function_with_name(irep_idt function_name, exprt expr)
+{
+  if(can_cast_expr<side_effect_expr_function_callt>(expr))
+  {
+    const side_effect_expr_function_callt function_call =
+      to_side_effect_expr_function_call(expr);
+    const exprt function = function_call.function();
+
+    if(can_cast_expr<symbol_exprt>(function))
+    {
+      const symbol_exprt function_symbol = to_symbol_expr(function);
+      return function_symbol.get_identifier() == function_name;
+    }
+  }
+  return false;
+}
+
+// Question: Is there a way to optimize this (Returning a balanced
+// tree instead of a chain tree)? Is there a standard function that I
+// can call for this?
+//
+// If this function returns nil expression, it means that no
+// (pre/post)condition was aggregated.
+exprt condition_conjunction(const exprt::operandst &nil_op)
+{
+  exprt::operandst op;
+
+  // filter non nil expressions
+  std::copy_if(
+    nil_op.begin(), nil_op.end(), std::back_inserter(op), [](exprt e) {
+      return e.is_not_nil();
+    });
+
+  if(op.empty())
+  {
+    // Question: What is a better way to do this?
+    exprt expr = exprt(ID_nil);
+    INVARIANT(
+      expr.is_nil(),
+      "Postcondition conjunction should be nil if no postcondition group was "
+      "found.");
+    return expr;
+    // return make_boolean_expr(true);
+  }
+  else if(op.size() == 1)
+  {
+    return op.front();
+  }
+  else
+  {
+    // If the first op is trivially true recurse for free
+    auto it = op.begin();
+    exprt op0 = *it;
+    ++it;
+    exprt op1 = *it;
+    ++it;
+    exprt acc = and_exprt(op0, op1);
+
+    for(; it != op.end(); ++it)
+    {
+      // Is this invariant correct?
+      INVARIANT(
+        it->is_not_nil(),
+        "Conjunction of conditions should never be called with nil arguments");
+      acc = and_exprt(acc, *it);
+    }
+
+    // This means that we didn't see any non-nil postcondition group
+    INVARIANT(
+      !acc.is_true(),
+      "Assuming that the invariant in the loop holds this should never be the "
+      "case.");
+
+    return acc;
+  }
+}
+
+exprt aggregate_function_preconditions(code_blockt function_body)
+{
+  exprt::operandst preconditions;
+  for(depth_iteratort it = function_body.depth_begin();
+      it != function_body.depth_end();
+      ++it)
+  {
+    if(is_call_to_function_with_name(CPROVER_PREFIX "precondition", *it))
+    {
+      const side_effect_expr_function_callt function_call =
+        to_side_effect_expr_function_call(*it);
+      exprt condition = function_call.arguments().front();
+      preconditions.push_back(condition);
+    }
+  }
+  // WARNING: In order for it to make sense to return the conjunction
+  // of the preconditions, they have to be in the beginning of the
+  // function body before anythinf else.
+  //
+  // TODO: Maybe I should add a check to ensure that
+
+  return condition_conjunction(preconditions);
+}
+
+// Extends the specified contract (requires/ensures) of the function
+// declaration with the given condition.
+void extend_contract(
+  const irep_namet &contract_name,
+  const exprt condition,
+  ansi_c_declarationt *declaration)
+{
+  exprt old_contract =
+    static_cast<const exprt &>(declaration->find(contract_name));
+  exprt new_contract;
+  if(old_contract.is_nil())
+    new_contract = condition;
+  else
+    new_contract = and_exprt(old_contract, condition);
+  declaration->add(contract_name, new_contract);
+}
+
+bool ansi_c_languaget::preconditions_to_contracts()
+{
+  for(std::list<ansi_c_declarationt>::iterator it = parse_tree.items.begin();
+      it != parse_tree.items.end();
+      ++it)
+  {
+    if(!it->declarators().empty())
+    {
+      ansi_c_declaratort decl = it->declarator();
+      if(can_cast_expr<code_blockt>(decl.value()))
+      {
+        code_blockt function_body = to_code_block(to_code(decl.value()));
+        exprt precondition = aggregate_function_preconditions(function_body);
+
+        if(precondition.is_not_nil())
+          extend_contract(ID_C_spec_requires, precondition, &(*it));
+      }
+    }
+  }
+
+  // TODO: Make a check for preconditions and ensure that they happen
+  // before anything else in the code. Should this check just be that
+  // the preconditions are a prefix of the function body?
+
+  return false;
 }
 
 void ansi_c_languaget::show_parse(std::ostream &out)

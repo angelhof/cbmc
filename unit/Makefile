@@ -31,9 +31,11 @@ SRC += analyses/ai/ai.cpp \
        goto-programs/osx_fat_reader.cpp \
        goto-programs/remove_returns.cpp \
        goto-programs/xml_expr.cpp \
+       goto-symex/expr_skeleton.cpp \
        goto-symex/goto_symex_state.cpp \
        goto-symex/ssa_equation.cpp \
        goto-symex/is_constant.cpp \
+       goto-symex/symex_assign.cpp \
        goto-symex/symex_level0.cpp \
        goto-symex/symex_level1.cpp \
        goto-symex/try_evaluate_pointer_comparisons.cpp \
@@ -66,6 +68,7 @@ SRC += analyses/ai/ai.cpp \
        util/format_number_range.cpp \
        util/get_base_name.cpp \
        util/graph.cpp \
+       util/interval_constraint.cpp \
        util/irep.cpp \
        util/irep_sharing.cpp \
        util/json_array.cpp \
@@ -76,6 +79,7 @@ SRC += analyses/ai/ai.cpp \
        util/optional_utils.cpp \
        util/parse_options.cpp \
        util/pointer_offset_size.cpp \
+       util/prefix_filter.cpp \
        util/range.cpp \
        util/replace_symbol.cpp \
        util/sharing_map.cpp \

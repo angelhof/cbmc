@@ -24,6 +24,7 @@ Author: Daniel Kroening, kroening@kroening.com
 
 #include <util/cmdline.h>
 #include <util/make_unique.h>
+#include <util/prefix_filter.h>
 
 #include <langapi/language.h>
 
@@ -33,11 +34,14 @@ Author: Daniel Kroening, kroening@kroening.com
   "(throw-assertion-error)" \
   "(java-assume-inputs-non-null)" \
   "(java-assume-inputs-interval):" \
+  "(java-assume-inputs-integral)" \
   "(throw-runtime-exceptions)" \
   "(max-nondet-array-length):" \
   "(max-nondet-tree-depth):" \
   "(java-max-vla-length):" \
   "(java-cp-include-files):" \
+  "(context-include):" \
+  "(context-exclude):" \
   "(no-lazy-methods)" \
   "(lazy-methods-extra-entry-point):" \
   "(java-load-class):" \
@@ -58,13 +62,27 @@ Author: Daniel Kroening, kroening@kroening.com
   "                              never initialize reference-typed parameter to the\n" /* NOLINT(*) */ \
   "                              entry point with null\n" /* NOLINT(*) */ \
   " --java-assume-inputs-interval [L:U] or [L:] or [:U]\n" \
-  "                              only initialize numerical primitive-typed parameter\n" /* NOLINT(*) */ \
-  "                              (byte, short, int, long, float, double) to an entry\n" /* NOLINT(*) */ \
-  "                              point within the given range; lower bound L\n" /* NOLINT(*) */ \
-  "                              and upper bound U must be integers\n" /* NOLINT(*) */ \
+  "                              force numerical primitive-typed inputs\n" /* NOLINT(*) */ \
+  "                              (byte, short, int, long, float, double) to be\n" /* NOLINT(*) */ \
+  "                              initialized within the given range; lower bound\n" /* NOLINT(*) */ \
+  "                              L and upper bound U must be integers;\n" /* NOLINT(*) */ \
+  "                              does not work for arrays;\n" /* NOLINT(*) */ \
+  " --java-assume-inputs-integral\n" \
+  "                              force float and double inputs to have integer values;\n" /* NOLINT(*) */ \
+  "                              does not work for arrays;\n" /* NOLINT(*) */ \
   " --java-max-vla-length N      limit the length of user-code-created arrays\n" /* NOLINT(*) */ \
   " --java-cp-include-files r    regexp or JSON list of files to load\n" \
   "                              (with '@' prefix)\n" \
+  " --context-include i          only analyze code matching specification i that\n" /* NOLINT(*) */ \
+  " --context-exclude e          does not match specification e.\n" \
+  "                              A specification is any prefix of a package, class\n" /* NOLINT(*) */ \
+  "                              or method name, e.g. \"org.cprover.\" or\n" /* NOLINT(*) */ \
+  "                              \"org.cprover.MyClass.\" or\n" \
+  "                              \"org.cprover.MyClass.methodToStub:(I)Z\".\n" \
+  "                              These options can be given multiple times.\n" \
+  "                              The default for context-include is 'all\n" \
+  "                              included'; default for context-exclude is\n" \
+  "                              'nothing excluded'.\n" \
   " --no-lazy-methods            load and translate all methods given on\n" \
   "                              the command line and in --classpath\n" \
   "                              Default is to load methods that appear to be\n" /* NOLINT(*) */ \
@@ -240,6 +258,9 @@ private:
   /// It tracks objects that should be reference-equal to each other by mapping
   /// IDs of such objects to symbols that store their values.
   std::unordered_map<std::string, object_creation_referencet> references;
+
+  /// If set, method bodies are only elaborated if they pass the filter
+  optionalt<prefix_filtert> method_in_context;
 };
 
 std::unique_ptr<languaget> new_java_bytecode_language();

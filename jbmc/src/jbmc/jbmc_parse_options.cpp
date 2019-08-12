@@ -169,6 +169,12 @@ void jbmc_parse_optionst::get_command_line_options(optionst &options)
     options.set_option("trace", true);
   }
 
+  if(cmdline.isset("validate-trace"))
+  {
+    options.set_option("validate-trace", true);
+    options.set_option("trace", true);
+  }
+
   if(cmdline.isset("localize-faults"))
     options.set_option("localize-faults", true);
 
@@ -490,7 +496,7 @@ int jbmc_parse_optionst::doit()
 
     if(!infile)
     {
-      log.error() << "failed to open input file `" << filename << "'"
+      log.error() << "failed to open input file '" << filename << "'"
                   << messaget::eom;
       return CPROVER_EXIT_INCORRECT_TASK;
     }
@@ -500,7 +506,7 @@ int jbmc_parse_optionst::doit()
 
     if(language==nullptr)
     {
-      log.error() << "failed to figure out type of file `" << filename << "'"
+      log.error() << "failed to figure out type of file '" << filename << "'"
                   << messaget::eom;
       return CPROVER_EXIT_INCORRECT_TASK;
     }
@@ -1036,6 +1042,7 @@ void jbmc_parse_optionst::help()
     " --property id                only check one specific property\n"
     " --stop-on-fail               stop analysis once a failed property is detected\n" // NOLINT(*)
     " --trace                      give a counterexample trace for failed properties\n" //NOLINT(*)
+    HELP_JAVA_TRACE_VALIDATION
     "\n"
     HELP_FUNCTIONS
     "\n"
